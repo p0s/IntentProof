@@ -5,9 +5,9 @@ Protect Wallet is a routed WalletConnect mode for imToken users:
 ```text
 DApp WalletConnect URI or QR
 -> IntentProof pairs the DApp after imToken connects
--> IntentProof receives and verifies the request
--> PASS/WARN/BLOCK decision
--> safe request is forwarded to imToken for final signing
+-> IntentProof receives and explains the request
+-> routine / review / cannot-relay evidence state
+-> reviewable request is forwarded to imToken for final signing
 -> result or rejection is returned to the DApp session
 ```
 
@@ -41,7 +41,7 @@ cannot scan a QR that is only visible on the same screen.
 - `eth_accounts`
 - `eth_chainId`
 
-Unsupported or unsafe methods are blocked by default:
+Unsupported or unsafe methods are not relayed by default:
 
 - `eth_sign`
 - `eth_signTransaction`
@@ -55,7 +55,7 @@ Unsupported or unsafe methods are blocked by default:
 - Sepolia: `eip155:11155111`
 - Base Sepolia: `eip155:84532`
 
-Testnet remains default. Mainnet requests show a visible warning and are forwarded to
+Ethereum mainnet is the default live review network. Mainnet requests show a visible warning and are forwarded to
 imToken only; IntentProof does not locally sign or broadcast mainnet
 transactions.
 
@@ -63,10 +63,10 @@ transactions.
 
 - imToken remains the final signer.
 - Token Core remains the testnet signing and transaction-evidence layer.
-- BLOCK requests are never forwarded.
-- WARN requests require explicit acknowledgement.
-- Mainnet unlimited approvals are blocked.
-- Undecodable mainnet transaction calldata is blocked.
+- Requests IntentProof cannot mediate are never forwarded.
+- Unusual or incomplete evidence requires explicit acknowledgement.
+- Mainnet unlimited approvals are highlighted as high-impact permissions.
+- Undecodable mainnet transaction calldata is shown as incomplete evidence.
 - Full target addresses are shown before forwarding.
 - No mnemonics, private keys, keystores, or production passwords are requested.
 - `VITE_WALLETCONNECT_PROJECT_ID` is public and optional.

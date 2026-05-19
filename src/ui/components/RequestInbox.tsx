@@ -14,6 +14,13 @@ function evidenceLine(request: LiveRequest) {
   return `Simulation: ${simulation} · Decode: ${decode}`;
 }
 
+function reviewLabel(decision: LivePolicyDecision) {
+  if (decision.severity === "block") return "Cannot relay";
+  if (decision.severity === "warn") return "Review";
+  if (decision.severity === "info") return "Info";
+  return "Routine";
+}
+
 export function RequestInbox({
   requests,
   selectedRequestId,
@@ -48,7 +55,7 @@ export function RequestInbox({
             <button
               key={request.id}
               type="button"
-              aria-label={`${request.origin} ${action} ${decision.label} ${request.chain.label} score ${decision.score.value} ${decision.score.confidence} confidence`}
+              aria-label={`${request.origin} ${action} ${reviewLabel(decision)} ${request.chain.label} evidence score ${decision.score.value} ${decision.score.confidence} confidence`}
               className={
                 request.id === selectedRequestId
                   ? "request-row active"
@@ -60,7 +67,7 @@ export function RequestInbox({
               <strong>{action}</strong>
               <span className="request-row-meta">
                 <em className={`decision-pill severity-${decision.severity}`}>
-                  {decision.label}
+                  {reviewLabel(decision)}
                 </em>
                 <small>{request.chain.label}</small>
               </span>

@@ -124,6 +124,7 @@ function isLocalWalletCoordinationRequest(request: LiveRequest) {
   return (
     request.method === "wallet_switchEthereumChain" ||
     request.method === "wallet_getCapabilities" ||
+    request.method === "eth_requestAccounts" ||
     request.method === "eth_accounts" ||
     request.method === "eth_chainId"
   );
@@ -138,7 +139,7 @@ function resolveLocalWalletCoordinationRequest(
     return buildWalletCapabilitiesResponse(request);
   }
   if (request.method === "eth_chainId") return request.chain.hexChainId;
-  if (request.method === "eth_accounts") {
+  if (request.method === "eth_accounts" || request.method === "eth_requestAccounts") {
     return account?.address ? [account.address] : [];
   }
   return undefined;
@@ -164,6 +165,13 @@ function stringifyWithBigInt(value: unknown, space = 2) {
 
 function severityClass(severity?: string) {
   return severity ? `severity-${severity.toLowerCase()}` : "severity-idle";
+}
+
+function liveReceiptReviewLabel(decision: LiveReceipt["decision"]) {
+  if (decision === "BLOCK") return "Cannot relay";
+  if (decision === "WARN") return "Review";
+  if (decision === "INFO") return "Info";
+  return "Routine";
 }
 
 function readConnectRouteUri() {
@@ -231,6 +239,14 @@ function requestSourceCopy(plan?: IntentProofPlan, scenarioId?: IntentScenarioId
 
 function modeLabel(mode: IntentProofMode) {
   return mode === "demo" ? "Example request" : "Token Core Lab";
+}
+
+function describeDappPairingError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/subscribing to/i.test(message) || /pairing/i.test(message)) {
+    return "WalletConnect pairing failed. Create a fresh WalletConnect QR or link from the DApp and try again.";
+  }
+  return message || "WalletConnect DApp pairing failed.";
 }
 
 function supportViewTitle(tab: ProductTab) {
@@ -476,10 +492,10 @@ function App({ liveClients }: AppProps = {}) {
       ? walletConnectConfigured
         ? "DApp route ready"
         : "WalletConnect setup required"
-      : initialDappRoute.hasUri
-        ? "Invalid DApp route"
+        : initialDappRoute.hasUri
+          ? "Invalid DApp route"
         : walletConnectConfigured
-          ? "Ready for DApp route"
+          ? "Ready"
           : "WalletConnect setup required",
     detail: initialDappRoute.valid
       ? walletConnectConfigured
@@ -488,7 +504,7 @@ function App({ liveClients }: AppProps = {}) {
       : initialDappRoute.hasUri
         ? "The routed URL did not contain a valid WalletConnect URI."
         : walletConnectConfigured
-          ? "Add a WalletConnect connection to begin."
+          ? ""
           : "Examples and the Token Core Lab still work without WalletConnect.",
   });
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>(
@@ -574,6 +590,7 @@ function App({ liveClients }: AppProps = {}) {
   const receiptText = receipt
     ? formatIntentProofReceiptText(receipt)
     : "No receipt yet.";
+  const hasActivity = liveActivity.length > 0 || Boolean(receipt);
   const currentChainLabel = plan
     ? getChainConfig(plan.preparedTx.chainKey).label
     : getChainConfig(selectedChainKey).label;
@@ -1034,8 +1051,8 @@ function App({ liveClients }: AppProps = {}) {
     });
     setDappState({
       status: "idle",
-      label: "Ready for DApp route",
-      detail: "Reconnect imToken, then add a DApp connection.",
+      label: "Ready",
+      detail: "",
     });
     setDappPairingUri("");
     setDappUriSource("manual");
@@ -1137,10 +1154,7 @@ function App({ liveClients }: AppProps = {}) {
       setDappState({
         status: "error",
         label: "DApp connection failed",
-        detail:
-          error instanceof Error
-            ? error.message
-            : "WalletConnect DApp pairing failed.",
+        detail: describeDappPairingError(error),
       });
     }
   }, [
@@ -1259,6 +1273,9 @@ function App({ liveClients }: AppProps = {}) {
       return;
     }
     try {
+      setLiveActionStatus(
+        `Waiting for imToken review on ${selectedLiveRequest.chain.label}.`,
+      );
       const result = await signer.forward(selectedLiveRequest);
       await liveInboundRef.current?.approveRequest(selectedLiveRequest, result);
       setLiveActivity((previous) => [
@@ -1582,61 +1599,47 @@ function App({ liveClients }: AppProps = {}) {
             />
           }
           receiptSummary={
-            <section className="surface live-receipt-strip">
-              <span className="eyebrow">Activity</span>
-              <strong>{liveActionStatus}</strong>
-              <p>
-                imToken final signing results and rejections are stored locally
-                as non-secret activity.
-              </p>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setActiveProductTab("activity")}
-              >
-                Open activity
-              </button>
-            </section>
+            hasActivity || liveActionStatus !== "Request Inbox is ready." ? (
+              <section className="surface live-receipt-strip">
+                <span className="eyebrow">Activity</span>
+                <strong>{liveActionStatus}</strong>
+                <p>Local receipts appear here after a request is handled.</p>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setActiveProductTab("activity")}
+                >
+                  Open activity
+                </button>
+              </section>
+            ) : null
           }
           supportTools={
-            <section className="surface support-tools-panel">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">Support tools</span>
-                  <h2>Examples and Token Core Lab</h2>
-                </div>
-                <span className="muted">Secondary surfaces</span>
-              </div>
-              <p>
-                IntentProof is the WalletConnect guard above. These tools remain
-                available for judges, local Token Core proof, and receipt review.
-              </p>
-              <div className="support-tool-grid">
-                <button
-                  type="button"
-                  aria-label="Open Examples"
-                  onClick={openExamples}
-                >
-                  <strong>Examples</strong>
-                  <span>Run five deterministic PASS/WARN/BLOCK requests.</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Open Token Core Lab"
-                  onClick={openTokenCoreLab}
-                >
-                  <strong>Token Core Lab</strong>
-                  <span>Create a fresh testnet wallet and sign locally.</span>
-                </button>
+            <section className="support-tools-rail" aria-label="Secondary tools">
+              <span>Need proof fixtures?</span>
+              <button
+                type="button"
+                aria-label="Open Examples"
+                onClick={openExamples}
+              >
+                Examples
+              </button>
+              <button
+                type="button"
+                aria-label="Open Token Core Lab"
+                onClick={openTokenCoreLab}
+              >
+                Token Core proof
+              </button>
+              {hasActivity ? (
                 <button
                   type="button"
                   aria-label="Open Activity"
                   onClick={() => setActiveProductTab("activity")}
                 >
-                  <strong>Activity</strong>
-                  <span>Review local non-secret activity.</span>
+                  Activity
                 </button>
-              </div>
+              ) : null}
             </section>
           }
         />
@@ -2801,7 +2804,7 @@ function App({ liveClients }: AppProps = {}) {
                   <div key={item.id}>
                     <span>{item.origin}</span>
                     <strong>
-                      {item.decision} ·{" "}
+                      {liveReceiptReviewLabel(item.decision)} ·{" "}
                       {item.resolvedLocally
                         ? "resolved"
                         : item.forwarded

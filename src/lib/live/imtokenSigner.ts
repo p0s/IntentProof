@@ -17,7 +17,19 @@ type EthereumProviderLike = {
   disconnect?: () => Promise<void>;
   on: (event: string, listener: (payload: unknown) => void) => void;
   request: (args: { method: string; params?: unknown }) => Promise<unknown>;
+  signer?: {
+    session?: { topic?: string };
+    client?: {
+      request: (args: {
+        topic: string;
+        chainId: string;
+        request: { method: string; params?: unknown };
+      }) => Promise<unknown>;
+    };
+  };
 };
+
+const DIRECT_REQUEST_UNAVAILABLE = Symbol("direct-request-unavailable");
 
 export class ImTokenWalletConnectSigner implements LiveSignerClient {
   private provider?: EthereumProviderLike;
@@ -67,7 +79,7 @@ export class ImTokenWalletConnectSigner implements LiveSignerClient {
         status: address ? "connected" : "pairing",
         label: address ? "imToken connected" : "Pairing imToken",
         detail: address
-          ? "IntentProof can forward safe requests to imToken for final signing."
+          ? "IntentProof can forward reviewed requests to imToken for final signing."
           : "Approve the WalletConnect request in imToken.",
         pairingUri: this.displayUri,
         account: address ? buildLiveAccount(address as `0x${string}`) : undefined,
@@ -134,9 +146,35 @@ export class ImTokenWalletConnectSigner implements LiveSignerClient {
 
   async forward(request: LiveRequest): Promise<unknown> {
     if (!this.provider) throw new Error("Connect imToken before forwarding.");
+    const directResult = await this.forwardThroughSession(request);
+    if (directResult !== DIRECT_REQUEST_UNAVAILABLE) return directResult;
+
+    if (
+      request.chain.chainId &&
+      this.provider.chainId !== request.chain.chainId
+    ) {
+      await this.provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: request.chain.hexChainId }],
+      });
+    }
     return this.provider.request({
       method: request.method,
       params: request.request.params,
+    });
+  }
+
+  private async forwardThroughSession(request: LiveRequest) {
+    const topic = this.provider?.signer?.session?.topic;
+    const client = this.provider?.signer?.client;
+    if (!topic || !client) return DIRECT_REQUEST_UNAVAILABLE;
+    return client.request({
+      topic,
+      chainId: request.chain.caip2,
+      request: {
+        method: request.method,
+        params: request.request.params,
+      },
     });
   }
 

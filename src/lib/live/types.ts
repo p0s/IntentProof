@@ -14,13 +14,18 @@ export type LiveSupportedMethod =
   | "eth_signTypedData_v4"
   | "wallet_switchEthereumChain"
   | "wallet_getCapabilities"
+  | "eth_requestAccounts"
   | "eth_accounts"
   | "eth_chainId";
 
 export type LiveUnsafeMethod =
   | "eth_sign"
+  | "eth_signTypedData"
   | "eth_signTransaction"
-  | "eth_sendRawTransaction";
+  | "eth_sendRawTransaction"
+  | "wallet_addEthereumChain"
+  | "wallet_watchAsset"
+  | "wallet_sendCalls";
 
 export type LiveMethod = LiveSupportedMethod | LiveUnsafeMethod | string;
 
@@ -107,11 +112,13 @@ export interface LiveAssetChangeEvidence {
 
 export interface LiveSimulationEvidence {
   status: "pending" | "success" | "revert" | "unavailable" | "not-applicable";
-  provider: "alchemy" | "rpc" | "none";
+  provider: "tenderly" | "alchemy" | "rpc" | "none";
   summary: string;
   gasEstimate?: string;
   resultPreview?: string;
   errorMessage?: string;
+  simulationUrl?: string;
+  publicSimulationUrl?: string;
   assetChanges: LiveAssetChangeEvidence[];
 }
 

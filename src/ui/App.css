@@ -283,6 +283,77 @@
   color: var(--text-soft);
 }
 
+.live-connect-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.live-connect-heading h2 {
+  margin: 2px 0 0;
+}
+
+.connection-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--text-soft);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.connection-status-pill span {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.connection-status-pill.connected {
+  border-color: rgba(22, 163, 111, 0.28);
+  background: rgba(22, 163, 111, 0.08);
+  color: #15845c;
+}
+
+.connection-status-pill.error,
+.connection-status-pill.setup-required {
+  border-color: rgba(216, 137, 18, 0.34);
+  background: rgba(216, 137, 18, 0.08);
+  color: #945a05;
+}
+
+.connection-status-detail {
+  margin: -6px 0 0;
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.connection-status-detail.error,
+.connection-status-detail.setup-required {
+  border-left-color: rgba(216, 137, 18, 0.5);
+}
+
+.compact-close-button {
+  justify-self: start;
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 13px;
+}
+
 .support-return {
   display: flex;
   flex-wrap: wrap;
@@ -364,6 +435,30 @@
   color: var(--text-soft);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.support-tools-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.support-tools-rail button {
+  min-height: 32px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+.support-tools-rail button:hover {
+  border-color: rgba(22, 119, 255, 0.28);
+  background: rgba(22, 119, 255, 0.08);
+  color: var(--accent-strong);
 }
 
 .dapp-intake-grid {
@@ -1959,10 +2054,12 @@ a:hover {
 .intentproof-shell[data-theme="dark"] .receipt-summary-grid div,
 .intentproof-shell[data-theme="dark"] .modal-step-list div,
 .intentproof-shell[data-theme="dark"] .support-tool-grid button,
+.intentproof-shell[data-theme="dark"] .support-tools-rail button,
 .intentproof-shell[data-theme="dark"] .support-return-actions button,
 .intentproof-shell[data-theme="dark"] .walletconnect-intake,
 .intentproof-shell[data-theme="dark"] .qr-camera-action,
 .intentproof-shell[data-theme="dark"] .signer-needed-callout,
+.intentproof-shell[data-theme="dark"] .connection-status-pill,
 .intentproof-shell[data-theme="dark"] .qr-scan-panel,
 .intentproof-shell[data-theme="dark"] .review-score-panel,
 .intentproof-shell[data-theme="dark"] input,
@@ -1978,6 +2075,19 @@ a:hover {
 .intentproof-shell[data-theme="dark"] .dapp-svg-orb {
   background: rgba(31, 123, 255, 0.14);
   color: #66a7ff;
+}
+
+.intentproof-shell[data-theme="dark"] .connection-status-pill.connected {
+  border-color: rgba(47, 210, 141, 0.36);
+  background: rgba(47, 210, 141, 0.1);
+  color: #7be5b4;
+}
+
+.intentproof-shell[data-theme="dark"] .connection-status-pill.error,
+.intentproof-shell[data-theme="dark"] .connection-status-pill.setup-required {
+  border-color: rgba(242, 163, 58, 0.36);
+  background: rgba(242, 163, 58, 0.1);
+  color: #f5c47f;
 }
 
 .intentproof-shell[data-theme="dark"] .subtle-file-button {

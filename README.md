@@ -1,9 +1,9 @@
 # IntentProof Tx Guard
 
 IntentProof Tx Guard is a WalletConnect transaction firewall for imToken users.
-DApps route requests through IntentProof, IntentProof verifies the actual request
-against user intent and an Agent Permission Firewall, then safe requests can be
-forwarded to imToken for final signing.
+DApps route requests through IntentProof, IntentProof explains the actual request
+with Token Core evidence and an Agent Permission Firewall, then reviewable
+requests can be forwarded to imToken for final signing.
 
 Live WalletConnect review defaults to Ethereum mainnet, with Base, Sepolia, and
 Base Sepolia available from the network selector. Examples work on a hosted
@@ -27,9 +27,11 @@ steps:
    URI, or users paste a URI, paste/upload a QR screenshot, or scan a QR.
 2. Request Inbox: live DApp requests appear with score, confidence, and reason.
 3. Review incoming request: IntentProof normalizes the JSON-RPC request, applies
-   Token Core evidence and policy checks, and shows PASS/WARN/BLOCK.
+   Token Core evidence and policy checks, and shows routine/review/cannot-relay
+   status.
 
-From the review card, BLOCK is rejected, WARN requires acknowledgement, and PASS
+From the review card, requests IntentProof cannot mediate are not relayed,
+unusual or incomplete evidence requires acknowledgement, and routine requests
 can be forwarded exactly to imToken for final signing. Activity is stored locally
 without secrets.
 
@@ -108,8 +110,8 @@ decode where supported, optional Alchemy asset-change simulation, and open RPC
 uses the configured chain RPC as a free/open dry-run provider.
 
 Simulation is evidence, not permission. A successful simulation can raise score
-confidence, but it never downgrades a policy BLOCK. Simulated reverts fail
-closed and are not forwarded to imToken.
+confidence, while a revert or missing simulation lowers confidence and requires
+careful review. Unsupported methods or chains remain unrelayable.
 
 ## Token Core Usage
 
@@ -135,10 +137,10 @@ so Examples and Token Core Lab still run when no project id is set.
 - Mainnet forwarding is allowed only through imToken and shows a warning.
 - No local browser mainnet signing or broadcast.
 - Direct DApp-to-imToken sessions bypass IntentProof.
-- BLOCK requests are not forwarded.
-- WARN requests require explicit acknowledgement before forwarding.
+- Requests IntentProof cannot mediate are not forwarded.
+- Unusual or incomplete evidence requires explicit acknowledgement before forwarding.
 - Unsupported methods such as `eth_sign`, `eth_signTransaction`, and
-  `eth_sendRawTransaction` are blocked.
+  `eth_sendRawTransaction` are not relayed.
 - Wallet secrets stay local and are never sent to AI providers.
 - Do not enter real seed phrases, private keys, production wallet passwords, or
   screenshots of real assets.
@@ -163,6 +165,11 @@ are intended for local testing only; the hosted product keeps remote AI off by
 default and requires an explicit per-session opt-in before sending intent text
 or decoded-analysis summaries to a provider.
 
+`VITE_ALCHEMY_API_KEY` and `VITE_TENDERLY_NODE_ACCESS_KEY` are also public
+browser values. Use disposable, origin-restricted keys for hosted deployments.
+For Tenderly REST simulation, use only the server-side `TENDERLY_*` variables
+below. Never create or deploy `VITE_TENDERLY_ACCESS_TOKEN`.
+
 Optional server/CLI-only values:
 
 ```text
@@ -172,6 +179,11 @@ TENDERLY_ACCESS_TOKEN=
 TOKENCORE_CLI_HOME=./.tokencore-cli
 TOKENCORE_CLI_PASSWORD=
 ```
+
+When `TENDERLY_ACCOUNT_SLUG`, `TENDERLY_PROJECT_SLUG`, and
+`TENDERLY_ACCESS_TOKEN` are configured on Vercel, hosted Protect Wallet uses a
+same-origin `/api/tenderly-simulate` function for live-request simulation before
+falling back to Alchemy/open RPC. The REST token is not sent to the browser.
 
 ## Verification
 

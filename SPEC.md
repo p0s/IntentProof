@@ -8,7 +8,7 @@ Build **IntentProof Tx Guard** for the imToken 10th Anniversary AI Co-creation C
 
 **Product thesis**
 
-> AI may propose wallet actions, but Token Core must verify the actual transaction against the user's stated intent before any signature is allowed.
+> DApps and AI can propose wallet actions, but IntentProof must explain the actual request with Token Core evidence before imToken makes the final signing decision.
 
 **Winning narrative**
 
@@ -24,7 +24,7 @@ Build **IntentProof Tx Guard** for the imToken 10th Anniversary AI Co-creation C
 
 **Hard rule**
 
-This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof and forwards safe requests to imToken for final signing. Examples and Token Core Lab remain available without API keys. At least one PASS scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Mainnet support is imToken-forwarded only; mainnet requests show a warning and no local browser mainnet signing is allowed.
+This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof, explains the request using decode/simulation/policy evidence, and relays reviewable requests to imToken for final signing. It does not claim to know the user's private intent for arbitrary live DApp requests. Examples and Token Core Lab remain available without API keys. At least one PASS example scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Mainnet support is imToken-forwarded only; mainnet requests show a warning and no local browser mainnet signing is allowed.
 
 ---
 
@@ -64,7 +64,7 @@ If the form allows only one option, choose the first item in each row. If it all
 Use this, or keep any edit under 300 characters:
 
 ```text
-IntentProof Tx Guard routes DApp requests through a WalletConnect firewall before imToken signs. It uses Token Core evidence, deterministic policy, and local receipts to flag unsafe approvals, wrong chains, bridge mismatches, and undecodable calls.
+IntentProof Tx Guard routes DApp requests through a WalletConnect review layer before imToken signs. It uses Token Core evidence, deterministic policy, and local receipts to explain approvals, routes, simulations, and unusual calls.
 ```
 
 ### 1.4 Required judge bundle
@@ -219,10 +219,11 @@ Properties:
 - enrich live write requests with a signal stack: verified/local/registry decode
   evidence, optional Alchemy asset-change simulation, and open RPC
   eth_call/estimateGas dry-run
-- show PASS/WARN/BLOCK before forwarding
-- reject BLOCK requests
-- require acknowledgement before forwarding WARN requests
-- forward PASS requests exactly to imToken
+- show readable request evidence, unusual signals, confidence, and relayability
+- do not present live requests as simple yes/no, safe/unsafe, or PASS/BLOCK truth
+- require acknowledgement before relaying requests with unusual or incomplete evidence
+- do not relay methods/chains that IntentProof technically cannot mediate
+- relay the exact request to imToken for final signing review when allowed
 - show non-secret local receipt
 - if `VITE_WALLETCONNECT_PROJECT_ID` is missing, show setup-required without breaking Examples or Token Core Lab
 
@@ -273,11 +274,12 @@ WalletConnect forwarding.
   chain are the source of truth.
 - No local browser mainnet signing.
 - No local browser mainnet broadcast.
-- BLOCK requests are never forwarded.
-- Undecodable mainnet transaction calldata is blocked by default.
-- Uniswap Universal Router command streams are WARN-gated when common v2/v3
-  swap/payment/Permit2 commands are decoded and displayed. Unsupported command
-  streams remain BLOCK on mainnet.
+- Requests IntentProof cannot mediate are never forwarded.
+- Undecodable mainnet transaction calldata is shown as incomplete evidence and
+  requires explicit review before relay.
+- Uniswap Universal Router command streams are decoded where supported. Unknown
+  commands are shown as incomplete route evidence and require explicit review
+  before relay.
 
 ### 3.3 Hosted app requirements
 
@@ -1025,7 +1027,7 @@ Built from the official Token Core CLI demo branch at token-core/tcx-examples/cl
 - [ ] Examples works without `.env` or API keys.
 - [ ] Token Core Lab supports Sepolia and Base Sepolia.
 - [ ] Mainnet warning appears for Ethereum/Base mainnet live requests.
-- [ ] Mainnet forwarding is allowed only through imToken and still requires WARN acknowledgement when warning policy is active.
+- [ ] Mainnet forwarding is allowed only through imToken and requires acknowledgement when evidence is unusual or incomplete.
 - [ ] No local browser mainnet signing exists.
 - [ ] Scenario A PASS is demonstrable.
 - [ ] Scenario B BLOCK is demonstrable.

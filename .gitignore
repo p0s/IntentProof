@@ -26,6 +26,7 @@ reports/
 .vercel/
 .vercel-home/
 .npm-cache/
+tmp/
 
 # Environment and secrets
 .env
@@ -98,6 +99,7 @@ Thumbs.db
 screenshots/
 recordings/
 videos/
+tmp/
 traces/
 .har
 *.har

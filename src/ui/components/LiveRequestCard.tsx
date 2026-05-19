@@ -68,9 +68,17 @@ function isWalletCoordinationRequest(request: LiveRequest) {
   return (
     request.method === "wallet_switchEthereumChain" ||
     request.method === "wallet_getCapabilities" ||
+    request.method === "eth_requestAccounts" ||
     request.method === "eth_accounts" ||
     request.method === "eth_chainId"
   );
+}
+
+function reviewLabel(decision: LivePolicyDecision) {
+  if (decision.severity === "block") return "Cannot relay";
+  if (decision.severity === "warn") return "Needs review";
+  if (decision.severity === "info") return "Informational";
+  return "Routine";
 }
 
 function simulationLabel(request: LiveRequest) {
@@ -126,10 +134,10 @@ export function LiveRequestCard({
       <div className="section-heading">
         <div>
           <span className="eyebrow">Step 3</span>
-          <h2>Verifiable Signing Card</h2>
+          <h2>Request Evidence</h2>
         </div>
         <span className={`decision-pill severity-${decision.severity}`}>
-          {decision.label}
+          {reviewLabel(decision)}
         </span>
       </div>
       <div className="facts-grid">
@@ -208,11 +216,11 @@ export function LiveRequestCard({
       <div className="issue-list">
         {decision.issues.length === 0 ? (
           <div className="issue-row severity-pass">
-            <strong>Request matches active policy</strong>
+            <strong>No unusual signals found</strong>
             <span>
               {coordinationRequest
-                ? "IntentProof can approve this wallet coordination request so the DApp can continue."
-                : "IntentProof can forward the exact request to imToken."}
+                ? "This wallet coordination request can be answered locally so the DApp can continue."
+                : "Review the request details, then use imToken as the final signing checkpoint."}
             </span>
           </div>
         ) : (
@@ -234,12 +242,16 @@ export function LiveRequestCard({
             checked={warningAcknowledged}
             onChange={(event) => onWarningAcknowledged(event.target.checked)}
           />
-          I reviewed this warning and want to forward it to imToken.
+          I reviewed these details and want imToken to make the final signing decision.
         </label>
       ) : null}
       <div className="button-row">
         <button type="button" className="primary-action" onClick={onForward} disabled={!decision.canForward}>
-          {coordinationRequest ? "Approve request" : "Forward to imToken"}
+          {decision.severity === "block"
+            ? "Cannot relay with IntentProof"
+            : coordinationRequest
+              ? "Answer DApp request"
+              : "Send to imToken for review"}
         </button>
         <button type="button" className="button-secondary" onClick={onReject}>
           Reject request

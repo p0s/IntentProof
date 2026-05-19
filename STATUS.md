@@ -9,8 +9,12 @@ _Last updated: 2026-05-19_
 - Primary screen: `Protect Wallet`.
 - Default live network: Ethereum mainnet through WalletConnect/imToken
   forwarding. Examples and Token Core Lab remain testnet-first.
-- Live mode: DApps route WalletConnect requests through IntentProof, then safe
-  requests can be forwarded to imToken for final signing.
+- Live mode: DApps route WalletConnect requests through IntentProof, then
+  reviewable requests can be forwarded to imToken for final signing. Live
+  Request Inbox is evidence-first: it shows what the request does, what is
+  unusual, what evidence is missing, and what IntentProof can or cannot relay.
+  It does not claim to know the user's private intent or reduce arbitrary DApp
+  requests to simple safe/unsafe truth.
 - DApp connection: primary flow is a minimalist unified intake for QR camera
   scan, QR screenshot paste/upload, or WalletConnect URI paste. Secondary
   partner/custom routing still captures the URI in memory, removes it from the
@@ -20,9 +24,10 @@ _Last updated: 2026-05-19_
 - Token Core: preserved for local testnet wallet creation/signing, templates,
   analyze/decode/policy checks, CLI commands, Sepolia, and Base Sepolia.
 - Mainnet: Ethereum and Base mainnet show a warning in Protect Wallet
-  WalletConnect forwarding. There is no separate mainnet allow toggle; BLOCK
-  requests are still never forwarded. No local browser mainnet signing or
-  broadcast.
+  WalletConnect forwarding. There is no separate mainnet allow toggle. Requests
+  with unusual or incomplete evidence require acknowledgement before relay;
+  methods/chains IntentProof cannot mediate are not relayed. No local browser
+  mainnet signing or broadcast.
 - Remote AI: browser AI parsing/summaries are off by default and require an
   explicit per-session opt-in before public `VITE_*` provider keys are used.
 - Wallet files: no browser import/export UI.
@@ -37,7 +42,8 @@ _Last updated: 2026-05-19_
 - [x] Request Inbox.
 - [x] Verifiable Signing Card for live requests.
 - [x] Mainnet warning for Ethereum/Base mainnet requests.
-- [x] Forward/reject actions.
+- [x] Forward/reject actions framed as imToken final review, not IntentProof
+  safety approval.
 - [x] Examples is a secondary support tool with five deterministic scenarios.
 - [x] Token Core Lab is a secondary support tool with local Token Core wallet/signing controls.
 - [x] Activity is a secondary support tool with local non-secret activity.
@@ -51,9 +57,9 @@ _Last updated: 2026-05-19_
 - [x] Added policy bridge and fake live clients for deterministic tests.
 - [x] Missing `VITE_WALLETCONNECT_PROJECT_ID` shows setup-required without
   breaking Examples or Token Core Lab.
-- [x] BLOCK live requests are rejected and not forwarded.
-- [x] WARN live requests require acknowledgement.
-- [x] PASS live requests forward exactly once in fake live tests.
+- [x] Unrelayable live requests are rejected and not forwarded.
+- [x] Requests with unusual signals require acknowledgement.
+- [x] Routine live requests forward exactly once in fake live tests.
 - [x] Routed DApp URL supports custom wallet entries without user paste/scan.
 - [x] Unified DApp connection intake for visible WalletConnect URI paste, QR
   screenshot paste/upload, and camera scan feeds the same pairing path.
@@ -71,11 +77,20 @@ _Last updated: 2026-05-19_
 - [x] Common Uniswap Universal Router v2/v3 swap command streams decode into
   WARN-gated route evidence instead of fail-closed BLOCK. Unsupported router
   commands still block on mainnet.
-- [x] Live Request Inbox scoring now includes decode evidence, optional Alchemy
-  asset-change simulation, open RPC dry-run simulation, gas estimate evidence,
-  and explicit unavailable/revert states.
+- [x] Live Request Inbox scoring now includes decode evidence, optional
+  server-side Tenderly simulation, optional Alchemy asset-change simulation,
+  open RPC dry-run simulation, gas estimate evidence, and explicit
+  unavailable/revert states.
 - [x] Simulation success can raise confidence, but simulation metadata never
-  bypasses BLOCK policy. Simulated reverts fail closed.
+  bypasses unrelayable method/chain checks. Simulated reverts lower confidence
+  and require explicit review before relay.
+- [x] Live Request Inbox hard-cut to evidence-first language: routine, review,
+  and cannot-relay states replace user-facing PASS/WARN/BLOCK verdicts.
+- [x] Added a repeatable `npm run test:e2e:dapps` harness for Tokenlon, 1inch,
+  Curve, Lido, ENS, Sushi, Compound, and Aave request classes. This tests the
+  real Protect Wallet inbox, scoring, reject, warning acknowledgement,
+  coordination approval, and exact-once forwarding paths without extracting
+  third-party WalletConnect pairing links.
 - [x] Reown dashboard project exists; production and local test origins are
   allowlisted. Public Project ID stays in local/deployment env only, not git.
 
@@ -118,10 +133,10 @@ _Last updated: 2026-05-19_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 27 files, 179 tests.
+- `npm run test:unit` PASS - 29 files, 192 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 3 files, 27 tests.
+- `npm run test:ui` PASS - 4 files, 30 tests.
 - `npm run build:ui` PASS.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.
@@ -131,6 +146,8 @@ _Last updated: 2026-05-19_
 - Browser visual QA PASS for Protect Wallet desktop, secondary Examples/Token
   Core Lab/Activity tools, `/wc?uri=` routed DApp intake, and `/demo-dapp`
   companion merchant route.
+- `npm run test:e2e:dapps` PASS - Tokenlon/1inch/Curve/Lido/ENS/Sushi/Compound/Aave
+  request harness.
 - `/wc?uri=` route scrub verified: the page removes the raw URI from the visible
   URL, shows `DApp route detected`, waits for imToken, and does not render the
   routed URI in page text.

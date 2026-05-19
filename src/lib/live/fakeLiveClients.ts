@@ -139,7 +139,9 @@ export class FakeSignerClient implements LiveSignerClient {
     this.forwarded += 1;
     this.lastRequestId = request.id;
     if (request.method === "eth_chainId") return request.chain.hexChainId;
-    if (request.method === "eth_accounts") return [DEMO_ACCOUNT];
+    if (request.method === "eth_accounts" || request.method === "eth_requestAccounts") {
+      return [DEMO_ACCOUNT];
+    }
     return "0xfake-imtoken-result";
   }
 

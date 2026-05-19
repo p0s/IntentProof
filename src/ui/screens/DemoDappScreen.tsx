@@ -250,7 +250,7 @@ export function DemoDappScreen({
       <section className="surface demo-dapp-panel">
         <h2>Demo requests</h2>
         <p>
-          These deterministic requests exercise the same PASS/WARN/BLOCK
+          These deterministic requests exercise the same evidence and review
           pipeline used by Protect Wallet.
         </p>
         <div className="demo-request-grid">

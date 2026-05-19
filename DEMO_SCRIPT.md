@@ -29,7 +29,7 @@ Show the top-right imToken account control, Connect a DApp, single-choice QR/URI
 Narration:
 
 ```text
-The flow is simple: connect imToken from the account control, connect a DApp, review the incoming request, then forward or reject based on PASS, WARN, or BLOCK.
+The flow is simple: connect imToken from the account control, connect a DApp, then review the incoming request evidence before forwarding it to imToken.
 ```
 
 ### 22-32s - Demo DApp Launch
@@ -42,34 +42,34 @@ Narration:
 Partner DApps can add IntentProof as a custom wallet option. The DApp opens IntentProof with a WalletConnect URI, so users do not manually paste anything.
 ```
 
-### 32-43s - PASS Forwarding
+### 32-43s - Routine Request
 
 Select the safe Sepolia transfer request.
 
 Narration:
 
 ```text
-This request is a readable ERC-20 transfer on Sepolia. It matches policy, so IntentProof can forward the exact request to imToken for final signing.
+This request is a readable ERC-20 transfer on Sepolia. IntentProof shows the decoded action, addresses, value, and evidence score before forwarding the exact request to imToken for final signing.
 ```
 
-### 43-55s - Mainnet Guard BLOCK
+### 43-55s - Mainnet Approval Review
 
 Select the mainnet unlimited approval request.
 
 Narration:
 
 ```text
-Mainnet forwarding is opt-in and stricter. This request asks for unlimited USDC approval, so IntentProof blocks it and does not forward it.
+Mainnet requests show a warning. This request asks for unlimited USDC approval, so IntentProof calls out the high-impact permission and requires explicit review before any relay to imToken.
 ```
 
-### 55-64s - WARN Acknowledgement
+### 55-64s - Signature Review
 
 Select the typed-data request.
 
 Narration:
 
 ```text
-Human-readable signatures require user review. WARN requests cannot be forwarded until the user acknowledges the warning.
+Human-readable signatures require user review. IntentProof shows the payload and waits for acknowledgement before sending it to imToken.
 ```
 
 ### 64-76s - Examples

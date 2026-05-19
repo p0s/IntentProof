@@ -45,6 +45,22 @@ function QrGlyph() {
   );
 }
 
+function statusIcon(status: LiveConnectorState["status"]) {
+  if (status === "connected") return "✓";
+  if (status === "error") return "×";
+  if (status === "pairing") return "…";
+  if (status === "setup-required") return "!";
+  return "○";
+}
+
+function statusText(status: LiveConnectorState["status"]) {
+  if (status === "connected") return "Connected";
+  if (status === "error") return "Needs attention";
+  if (status === "pairing") return "Pairing";
+  if (status === "setup-required") return "Setup needed";
+  return "Ready";
+}
+
 export function DappConnectionCard({
   state,
   pairingUri,
@@ -68,6 +84,9 @@ export function DappConnectionCard({
   const hasValidPairingUri = Boolean(manualValidation?.ok);
   const canPair =
     projectIdPresent && imTokenConnected && hasValidPairingUri;
+  const shouldShowStatusDetail =
+    state.status !== "idle" && state.detail.trim().length > 0;
+  const canCloseConnections = state.status === "connected";
   const buttonLabel =
     !imTokenConnected && hasValidPairingUri
       ? "Connect imToken first"
@@ -183,13 +202,27 @@ export function DappConnectionCard({
 
   return (
     <section className="surface live-connect-card">
-      <span className="eyebrow">Step 1</span>
-      <h2>Connect a DApp</h2>
+      <div className="live-connect-heading">
+        <div>
+          <span className="eyebrow">DApp connection</span>
+          <h2>Connect a DApp</h2>
+        </div>
+        <span
+          className={`connection-status-pill ${state.status}`}
+          title={`${state.label}. ${state.detail}`}
+        >
+          <span aria-hidden="true">{statusIcon(state.status)}</span>
+          {statusText(state.status)}
+        </span>
+      </div>
       <p>
         {hasRoutedUri
-          ? "DApp request detected. Connect imToken here to approve the session and start receiving requests."
-          : "Add a WalletConnect connection from the DApp you want to protect. IntentProof verifies each request before imToken signs."}
+          ? "Connect imToken here to approve the routed session and start receiving requests."
+          : "Scan a DApp QR or paste its WalletConnect URI. IntentProof reviews requests before imToken signs."}
       </p>
+      {shouldShowStatusDetail ? (
+        <p className={`connection-status-detail ${state.status}`}>{state.detail}</p>
+      ) : null}
       {hasRoutedUri ? (
         <div className="live-status connected">
           <strong>DApp route detected</strong>
@@ -225,7 +258,7 @@ export function DappConnectionCard({
                 <input
                   value={pairingUri}
                   onChange={(event) => onPairingUriChange(event.target.value)}
-                  placeholder="Paste wc: URI, paste QR image, or upload screenshot"
+                  placeholder="wc:... or QR screenshot"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -292,10 +325,6 @@ export function DappConnectionCard({
           </button>
         </div>
       ) : null}
-      <div className={`live-status ${state.status}`}>
-        <strong>{state.label}</strong>
-        <span>{state.detail}</span>
-      </div>
       <button
         type="button"
         onClick={onConnect}
@@ -303,13 +332,11 @@ export function DappConnectionCard({
       >
         {buttonLabel}
       </button>
-      <button type="button" className="button-secondary" onClick={onResetLiveSessions}>
-        Reset live sessions
-      </button>
-      <small>
-        Use reset after changing domains, reconnecting a DApp, or recovering from
-        a failed WalletConnect pairing.
-      </small>
+      {canCloseConnections ? (
+        <button type="button" className="button-secondary compact-close-button" onClick={onResetLiveSessions}>
+          Close connections
+        </button>
+      ) : null}
     </section>
   );
 }

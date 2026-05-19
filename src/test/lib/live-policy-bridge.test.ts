@@ -67,7 +67,47 @@ describe("live policy bridge", () => {
     );
   });
 
-  it("blocks unlimited approvals and gates WARN on acknowledgement", () => {
+  it("allows account requests through the local coordination path", () => {
+    const request = normalizeLiveRequest({
+      id: "accounts",
+      origin: "app.uniswap.org",
+      method: "eth_requestAccounts",
+      params: [],
+      chainId: "eip155:1",
+    });
+
+    const decision = evaluateLiveRequestPolicy({
+      request,
+      firewall: defaultFirewallSettings,
+    });
+
+    expect(decision.label).toBe("PASS");
+    expect(decision.canForward).toBe(true);
+    expect(decision.score.reasons).toContain(
+      "Read-only wallet coordination request.",
+    );
+  });
+
+  it("blocks unsupported methods even when a DApp session can be approved", () => {
+    const request = normalizeLiveRequest({
+      id: "batch",
+      origin: "app.uniswap.org",
+      method: "wallet_sendCalls",
+      params: [{ calls: [] }],
+      chainId: "eip155:1",
+    });
+
+    const decision = evaluateLiveRequestPolicy({
+      request,
+      firewall: defaultFirewallSettings,
+    });
+
+    expect(decision.label).toBe("BLOCK");
+    expect(decision.canForward).toBe(false);
+    expect(decision.issues[0]?.title).toBe("Cannot relay request");
+  });
+
+  it("flags unlimited approvals and gates review on acknowledgement", () => {
     const approval = normalizeLiveRequest({
       id: "approval",
       origin: "demo",
@@ -90,12 +130,22 @@ describe("live policy bridge", () => {
       chainId: "0xaa36a7",
     });
 
-    expect(
-      evaluateLiveRequestPolicy({
-        request: approval,
-        firewall: defaultFirewallSettings,
-      }).label,
-    ).toBe("BLOCK");
+    const approvalWarning = evaluateLiveRequestPolicy({
+      request: approval,
+      firewall: defaultFirewallSettings,
+    });
+    const acknowledgedApproval = evaluateLiveRequestPolicy({
+      request: approval,
+      firewall: defaultFirewallSettings,
+      warningAcknowledged: true,
+    });
+
+    expect(approvalWarning.label).toBe("WARN");
+    expect(approvalWarning.canForward).toBe(false);
+    expect(approvalWarning.issues.map((item) => item.title)).toContain(
+      "Unlimited approval",
+    );
+    expect(acknowledgedApproval.canForward).toBe(true);
     expect(
       evaluateLiveRequestPolicy({
         request: typedData,
@@ -178,7 +228,7 @@ describe("live policy bridge", () => {
     expect(acknowledged.canForward).toBe(true);
   });
 
-  it("blocks unsupported Uniswap Universal Router command streams", () => {
+  it("warn-gates unsupported Uniswap Universal Router command streams", () => {
     const request = normalizeLiveRequest({
       id: "uniswap-v4",
       origin: "app.uniswap.org",
@@ -200,8 +250,8 @@ describe("live policy bridge", () => {
       warningAcknowledged: true,
     });
 
-    expect(decision.label).toBe("BLOCK");
-    expect(decision.canForward).toBe(false);
+    expect(decision.label).toBe("WARN");
+    expect(decision.canForward).toBe(true);
     expect(decision.issues.map((item) => item.title)).toContain(
       "Undecoded Universal Router commands",
     );
@@ -243,7 +293,7 @@ describe("live policy bridge", () => {
     expect(acknowledged.canForward).toBe(true);
   });
 
-  it("still blocks spoofed Universal Router selectors on unknown contracts", () => {
+  it("shows incomplete evidence for spoofed Universal Router selectors on unknown contracts", () => {
     const request = normalizeLiveRequest({
       id: "spoofed-router",
       origin: "app.uniswap.org",
@@ -265,8 +315,8 @@ describe("live policy bridge", () => {
       warningAcknowledged: true,
     });
 
-    expect(decision.label).toBe("BLOCK");
-    expect(decision.canForward).toBe(false);
+    expect(decision.label).toBe("WARN");
+    expect(decision.canForward).toBe(true);
     expect(decision.issues.map((item) => item.title)).toContain(
       "Undecodable mainnet calldata",
     );

@@ -10,6 +10,7 @@ coverage/
 .vercel/
 .vercel-home/
 .npm-cache/
+tmp/
 screenshots/
 recordings/
 videos/

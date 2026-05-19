@@ -19,6 +19,7 @@ export function describeLiveRequestAction(request: LiveRequest) {
   }
   if (request.method === "wallet_getCapabilities") return "Wallet capability check";
   if (request.method === "wallet_switchEthereumChain") return "Network switch request";
+  if (request.method === "eth_requestAccounts") return "Account request";
   if (request.method === "eth_accounts") return "Account request";
   if (request.method === "eth_chainId") return "Chain ID request";
   if (request.method === "personal_sign") return "Message signature";

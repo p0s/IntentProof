@@ -84,4 +84,21 @@ describe("WalletKit inbound adapter", () => {
     expect(namespace.methods).toContain("wallet_getCapabilities");
     expect(namespace.methods).toContain("eth_sendTransaction");
   });
+
+  it("advertises common modern DApp methods so policy can judge them after pairing", () => {
+    const namespace = buildEip155SessionNamespace({
+      address: "0x7777777777777777777777777777777777777777",
+      chains: ["eip155:1", "eip155:11155111"],
+    });
+
+    expect(namespace.methods).toEqual(
+      expect.arrayContaining([
+        "eth_requestAccounts",
+        "wallet_sendCalls",
+        "wallet_addEthereumChain",
+        "wallet_watchAsset",
+        "eth_sign",
+      ]),
+    );
+  });
 });

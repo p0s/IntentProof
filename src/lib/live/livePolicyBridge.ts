@@ -93,7 +93,12 @@ function getErc20TransferRecipient(request: LiveRequest) {
 }
 
 function isReadOnlyWalletCoordinationRequest(request: LiveRequest) {
-  return request.method === "wallet_getCapabilities" || request.method === "eth_accounts" || request.method === "eth_chainId";
+  return (
+    request.method === "wallet_getCapabilities" ||
+    request.method === "eth_requestAccounts" ||
+    request.method === "eth_accounts" ||
+    request.method === "eth_chainId"
+  );
 }
 
 function buildReviewScore(params: {
@@ -187,8 +192,8 @@ function buildReviewScore(params: {
   } else if (evidence?.simulation.status === "pending") {
     reasons.push("Simulation evidence is still loading.");
   }
-  if (titles.includes("Unlimited approval blocked")) {
-    reasons.push("Unlimited token approval is an explicit block condition.");
+  if (titles.includes("Unlimited approval")) {
+    reasons.push("Unlimited token approval is an unusual high-impact permission.");
   }
   if (titles.includes("Mainnet request")) {
     reasons.push("Mainnet assets are real, so the request needs user review.");
@@ -247,7 +252,7 @@ export function evaluateLiveRequestPolicy(params: {
     : undefined;
 
   if (request.unsupportedReason) {
-    issues.push(issue("block", "Unsupported request", request.unsupportedReason));
+    issues.push(issue("block", "Cannot relay request", request.unsupportedReason));
   }
 
   if (isMainnet && !isReadOnlyWalletCoordinationRequest(request)) {
@@ -263,8 +268,8 @@ export function evaluateLiveRequestPolicy(params: {
   if (!isMainnet && !firewall.allowedChains.includes(request.chain.chainKey)) {
     issues.push(
       issue(
-        "block",
-        "Chain outside policy",
+        "warn",
+        "Chain outside profile",
         `${request.chain.label} is not allowed by the active Permission Profile.`,
       ),
     );
@@ -274,26 +279,26 @@ export function evaluateLiveRequestPolicy(params: {
     if (!request.tx?.to) {
       issues.push(
         issue(
-          "block",
-          "Missing recipient",
-          "IntentProof cannot forward a transaction without a full target address.",
+          "warn",
+          "No target address",
+          "This transaction does not include a normal target address. Review whether it is a contract deployment or malformed request.",
         ),
       );
     }
     if (isUnlimitedApproval(request)) {
       issues.push(
         issue(
-          "block",
-          "Unlimited approval blocked",
-          "This transaction grants uint256.max token allowance. Mainnet and default policies block it.",
+          "warn",
+          "Unlimited approval",
+          "This transaction grants uint256.max token allowance. That can let a spender move the token until the approval is revoked.",
         ),
       );
     }
     if (request.evidence?.simulation.status === "revert") {
       issues.push(
         issue(
-          "block",
-          "Simulation failed",
+          "warn",
+          "Simulation indicates revert",
           request.evidence.simulation.errorMessage
             ? `The simulation provider indicates this request may fail: ${request.evidence.simulation.errorMessage}`
             : "The simulation provider indicates this request may fail.",
@@ -321,8 +326,8 @@ export function evaluateLiveRequestPolicy(params: {
         if (universalRouterPlan.hasUnlimitedPermit) {
           issues.push(
             issue(
-              "block",
-              "Unlimited Permit2 approval blocked",
+              "warn",
+              "Unlimited Permit2 approval",
               "The Universal Router command stream includes a Permit2 permit for the maximum uint160 allowance.",
             ),
           );
@@ -331,20 +336,20 @@ export function evaluateLiveRequestPolicy(params: {
         const unsupported = universalRouterPlan?.unsupportedCommandNames.join(", ");
         issues.push(
           issue(
-            "block",
+            "warn",
             "Undecoded Universal Router commands",
             unsupported
-              ? `IntentProof decoded the Universal Router envelope but cannot safely display these commands yet: ${unsupported}.`
-              : "IntentProof recognizes this as a Uniswap Universal Router request, but it does not decode and display the router command stream yet. Mainnet forwarding is blocked until token in/out, recipient, Permit2, and spend commands are readable.",
+              ? `IntentProof decoded the Universal Router envelope but cannot fully display these commands yet: ${unsupported}.`
+              : "IntentProof recognizes this as a Uniswap Universal Router request, but it does not decode and display the router command stream yet. Review token in/out, recipient, Permit2, and spend commands in imToken.",
           ),
         );
       }
     } else if (isMainnet && hasUnknownCalldata(request)) {
       issues.push(
         issue(
-          "block",
+          "warn",
           "Undecodable mainnet calldata",
-          "Mainnet forwarding is blocked when calldata is not one of the supported readable methods.",
+          "IntentProof does not fully decode this mainnet calldata. Use imToken as the final checkpoint and verify the target, value, selector, and calldata length.",
         ),
       );
     }
@@ -408,10 +413,10 @@ export function evaluateLiveRequestPolicy(params: {
             ? "INFO"
             : "PASS",
     summary: hasBlock
-      ? "Request is not forwarded to imToken."
+      ? "IntentProof cannot relay this method or chain. Use a different wallet path only if you deliberately trust the request."
       : hasWarn
-        ? "Request needs explicit acknowledgement before forwarding to imToken."
-        : "Request can be forwarded to imToken for final signing.",
+        ? "IntentProof found unusual or incomplete evidence. Review the details before sending the exact request to imToken."
+        : "IntentProof found routine request evidence. imToken remains the final signing checkpoint.",
     score,
     canForward: !hasBlock && !(hasWarn && !params.warningAcknowledged),
     requiresAcknowledgement: hasWarn,

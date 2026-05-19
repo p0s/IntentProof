@@ -27,7 +27,7 @@ IntentProof Tx Guard
 ### Project description
 
 ```text
-IntentProof Tx Guard routes DApp requests through a Token Core-powered firewall before imToken signs. It blocks wrong chains, unsafe approvals, and bridge mismatches, with mainnet forwarding warned and imToken-signed only.
+IntentProof Tx Guard routes DApp requests through a Token Core-powered review layer before imToken signs. It explains calldata, approvals, routes, simulation evidence, and unusual mainnet requests in human-readable form.
 ```
 
 ### Project category
@@ -132,7 +132,7 @@ IntentProof helps imToken users route DApp requests through a Token Core-powered
 Showcase blurb:
 
 ```text
-A WalletConnect transaction firewall for imToken users. DApps route requests through IntentProof, Token Core evidence and policy checks decide PASS/WARN/BLOCK, and safe requests can be forwarded to imToken for final signing.
+A WalletConnect transaction review layer for imToken users. DApps route requests through IntentProof, Token Core evidence explains calldata, approvals, routes, and simulation signals, then imToken remains the final signer.
 ```
 
 Integration note:

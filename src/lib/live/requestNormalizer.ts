@@ -40,6 +40,40 @@ function extractChainId(method: string, params: unknown, tx?: LiveTransactionReq
   return undefined;
 }
 
+const SUPPORTED_LIVE_METHODS = new Set([
+  "eth_sendTransaction",
+  "personal_sign",
+  "eth_signTypedData_v4",
+  "wallet_switchEthereumChain",
+  "wallet_getCapabilities",
+  "eth_requestAccounts",
+  "eth_accounts",
+  "eth_chainId",
+]);
+
+function getUnsupportedMethodReason(method: string) {
+  if (
+    method === "eth_sign" ||
+    method === "eth_signTransaction" ||
+    method === "eth_sendRawTransaction"
+  ) {
+    return `${method} bypasses readable transaction review.`;
+  }
+  if (method === "eth_signTypedData") {
+    return "eth_signTypedData is ambiguous; IntentProof only reviews eth_signTypedData_v4 payloads.";
+  }
+  if (method === "wallet_sendCalls") {
+    return "wallet_sendCalls can contain a batch of calls that IntentProof does not decode yet.";
+  }
+  if (method === "wallet_addEthereumChain" || method === "wallet_watchAsset") {
+    return `${method} is a wallet management request that IntentProof does not mediate yet.`;
+  }
+  if (!SUPPORTED_LIVE_METHODS.has(method)) {
+    return `${method} is not supported by IntentProof review yet.`;
+  }
+  return undefined;
+}
+
 export function normalizeLiveRequest(params: {
   id: string;
   topic?: string;
@@ -63,11 +97,7 @@ export function normalizeLiveRequest(params: {
     unsupportedChainId
       ? `Unsupported chain ${unsupportedChainId} is outside IntentProof's WalletConnect allowlist.`
       : undefined,
-    params.method === "eth_sign" ||
-    params.method === "eth_signTransaction" ||
-    params.method === "eth_sendRawTransaction"
-      ? `${params.method} bypasses readable transaction review.`
-      : undefined,
+    getUnsupportedMethodReason(params.method),
   ].filter((reason): reason is string => Boolean(reason));
 
   return {

@@ -53,11 +53,21 @@ type WalletKitSessionRequest = {
 const DEFAULT_EIP155_METHODS = [
   "eth_sendTransaction",
   "personal_sign",
+  "eth_signTypedData",
   "eth_signTypedData_v4",
   "wallet_switchEthereumChain",
+  "wallet_addEthereumChain",
+  "wallet_watchAsset",
   "wallet_getCapabilities",
+  "wallet_sendCalls",
+  "wallet_getCallsStatus",
+  "wallet_showCallsStatus",
+  "eth_requestAccounts",
   "eth_accounts",
   "eth_chainId",
+  "eth_sign",
+  "eth_signTransaction",
+  "eth_sendRawTransaction",
 ];
 
 const DEFAULT_EIP155_EVENTS = ["accountsChanged", "chainChanged"];
@@ -262,6 +272,13 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
           account,
         });
       } catch {
+        this.onState?.({
+          status: "error",
+          label: "DApp approval failed",
+          detail:
+            "IntentProof could not approve the WalletConnect session proposal. Try a fresh DApp QR or route.",
+          account,
+        });
         await walletkit.rejectSession({
           id: typed.id,
           reason: getSdkError("USER_REJECTED_METHODS"),

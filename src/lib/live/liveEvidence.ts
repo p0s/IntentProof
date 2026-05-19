@@ -88,6 +88,68 @@ function normalizeAlchemyAssetChanges(value: unknown): LiveAssetChangeEvidence[]
   }));
 }
 
+interface TenderlyServerSimulationPayload {
+  provider?: string;
+  status?: string;
+  summary?: string;
+  gasEstimate?: string;
+  resultPreview?: string;
+  errorMessage?: string;
+  simulationUrl?: string;
+  publicSimulationUrl?: string;
+  assetChanges?: unknown;
+}
+
+function isTenderlySimulationStatus(
+  status: string | undefined,
+): status is "success" | "revert" {
+  return status === "success" || status === "revert";
+}
+
+async function simulateWithTenderlyServer(
+  request: LiveRequest,
+): Promise<LiveSimulationEvidence | undefined> {
+  if (!request.tx?.from || !request.tx.to) return undefined;
+
+  const response = await fetch("/api/tenderly-simulate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chainId: request.chain.chainId,
+      from: request.tx.from,
+      to: request.tx.to,
+      data: request.tx.data ?? "0x",
+      value: request.tx.value ?? "0x0",
+      gas: request.tx.gas,
+    }),
+  });
+  if (!response.ok) return undefined;
+
+  const payload = (await response.json()) as TenderlyServerSimulationPayload;
+  if (
+    payload.provider !== "tenderly" ||
+    !isTenderlySimulationStatus(payload.status)
+  ) {
+    return undefined;
+  }
+
+  return {
+    status: payload.status,
+    provider: "tenderly",
+    summary:
+      payload.summary ??
+      (payload.status === "success"
+        ? "Tenderly simulation completed."
+        : "Tenderly simulation reported a transaction error."),
+    gasEstimate: payload.gasEstimate,
+    resultPreview: payload.resultPreview,
+    errorMessage: payload.errorMessage,
+    simulationUrl: payload.simulationUrl,
+    publicSimulationUrl: payload.publicSimulationUrl,
+    assetChanges: normalizeAlchemyAssetChanges(payload.assetChanges),
+  };
+}
+
 async function simulateWithAlchemy(
   request: LiveRequest,
 ): Promise<LiveSimulationEvidence | undefined> {
@@ -268,6 +330,14 @@ async function buildSimulationEvidence(
       summary: "Simulation is not needed for this request type.",
       assetChanges: [],
     };
+  }
+
+  try {
+    const tenderly = await simulateWithTenderlyServer(request);
+    if (tenderly) return tenderly;
+  } catch {
+    // Server-side Tenderly simulation is optional. If the API route is absent,
+    // unconfigured, or unavailable, fall through to browser-safe providers.
   }
 
   try {

@@ -35,6 +35,24 @@ describe("live request normalizer", () => {
     expect(request.unsupportedReason).toContain("bypasses readable transaction review");
   });
 
+  it("marks unknown and batched methods unsupported after session approval", () => {
+    const batched = normalizeLiveRequest({
+      id: "batch",
+      origin: "demo",
+      method: "wallet_sendCalls",
+      params: [{ calls: [] }],
+    });
+    const unknown = normalizeLiveRequest({
+      id: "unknown",
+      origin: "demo",
+      method: "wallet_doSomething",
+      params: [],
+    });
+
+    expect(batched.unsupportedReason).toContain("does not decode yet");
+    expect(unknown.unsupportedReason).toContain("not supported");
+  });
+
   it("uses session chain id for non-transaction requests", () => {
     const request = normalizeLiveRequest({
       id: "typed",
@@ -57,6 +75,20 @@ describe("live request normalizer", () => {
     });
 
     expect(request.method).toBe("wallet_getCapabilities");
+    expect(request.chain.caip2).toBe("eip155:1");
+    expect(request.unsupportedReason).toBeUndefined();
+  });
+
+  it("normalizes account requests without marking them unsupported", () => {
+    const request = normalizeLiveRequest({
+      id: "accounts",
+      origin: "app.uniswap.org",
+      method: "eth_requestAccounts",
+      params: [],
+      chainId: "eip155:1",
+    });
+
+    expect(request.method).toBe("eth_requestAccounts");
     expect(request.chain.caip2).toBe("eip155:1");
     expect(request.unsupportedReason).toBeUndefined();
   });

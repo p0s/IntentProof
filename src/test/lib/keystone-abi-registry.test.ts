@@ -138,7 +138,7 @@ describe("Keystone ABI registry", () => {
     ]);
   });
 
-  it("does not use registry decoding to bypass approval or mainnet warnings", () => {
+  it("does not use registry decoding to bypass approval or mainnet review", () => {
     const approval = normalizeLiveRequest({
       id: "approval",
       origin: "demo",
@@ -159,10 +159,10 @@ describe("Keystone ABI registry", () => {
       firewall: defaultFirewallSettings,
     });
 
-    expect(decision.label).toBe("BLOCK");
+    expect(decision.label).toBe("WARN");
     expect(decision.issues.map((issue) => issue.title)).toContain("Mainnet request");
     expect(decision.issues.map((issue) => issue.title)).toContain(
-      "Unlimited approval blocked",
+      "Unlimited approval",
     );
   });
 });
