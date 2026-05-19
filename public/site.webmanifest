@@ -1,0 +1,23 @@
+{
+  "name": "IntentProof Tx Guard",
+  "short_name": "IntentProof",
+  "description": "Verifiable AI transaction guard powered by Token Core.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fbff",
+  "theme_color": "#1677ff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/intentproof-mark.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

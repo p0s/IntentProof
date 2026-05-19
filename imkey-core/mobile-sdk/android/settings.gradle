@@ -1,3 +1,0 @@
-include ':app', ':imkeylibrary'
-include ':blelib'
-project(':blelib').projectDir = new File(settingsDir, '../../blelibrary/imkey-ble-android/imkeyble')

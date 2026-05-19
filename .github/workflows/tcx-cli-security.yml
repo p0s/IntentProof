@@ -1,21 +1,42 @@
-name: TCX CLI — Security Checks
+name: IntentProof — Security Checks
 
 on:
   push:
     branches: ["main"]
     paths:
-      - "token-core/tcx-examples/cli/**"
+      - ".github/workflows/tcx-cli-security.yml"
+      - "config/**"
+      - "public/**"
+      - "scripts/**"
+      - "src/**"
+      - ".env.example"
+      - ".npmrc"
+      - "eslint.config.js"
+      - "index.html"
+      - "package-lock.json"
+      - "package.json"
+      - "tsconfig*.json"
+      - "vite.config.ts"
   pull_request:
     paths:
-      - "token-core/tcx-examples/cli/**"
+      - ".github/workflows/tcx-cli-security.yml"
+      - "config/**"
+      - "public/**"
+      - "scripts/**"
+      - "src/**"
+      - ".env.example"
+      - ".npmrc"
+      - "eslint.config.js"
+      - "index.html"
+      - "package-lock.json"
+      - "package.json"
+      - "tsconfig*.json"
+      - "vite.config.ts"
 
 permissions:
+  actions: read
   contents: read
   security-events: write
-
-defaults:
-  run:
-    working-directory: token-core/tcx-examples/cli
 
 jobs:
   supply-chain:
@@ -27,9 +48,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          cache-dependency-path: token-core/tcx-examples/cli/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Ensure lockfile exists
         run: test -f package-lock.json
@@ -39,6 +60,9 @@ jobs:
 
       - name: Run high severity audit gate
         run: npm run audit:high
+
+      - name: Secret scan
+        run: npm run secrets:check
 
   codeql:
     name: CodeQL SAST
@@ -52,9 +76,21 @@ jobs:
           languages: javascript-typescript
           config: |
             paths:
-              - token-core/tcx-examples/cli/src
+              - src
 
       - name: Analyze
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:javascript-typescript"
+          # This public demo repository may not have GitHub code scanning
+          # enabled. Run CodeQL queries and keep SARIF as an artifact instead
+          # of failing CI while trying to upload to disabled code scanning.
+          upload: never
+          output: codeql-results
+
+      - name: Upload CodeQL SARIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-javascript-typescript-sarif
+          path: codeql-results
+          if-no-files-found: error

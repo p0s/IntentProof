@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="IntentProof mark">
+  <defs>
+    <linearGradient id="intentproof-bg" x1="16" y1="8" x2="82" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38A0FF"/>
+      <stop offset=".52" stop-color="#1677FF"/>
+      <stop offset="1" stop-color="#0B4EB8"/>
+    </linearGradient>
+    <linearGradient id="intentproof-path" x1="20" y1="21" x2="76" y2="73" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#B7DCFF"/>
+    </linearGradient>
+    <filter id="intentproof-shadow" x="0" y="0" width="96" height="96" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#0B4EB8" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <g filter="url(#intentproof-shadow)">
+    <rect x="8" y="8" width="80" height="80" rx="24" fill="url(#intentproof-bg)"/>
+    <path d="M48 21.5 70 31v15.8c0 15.1-9.1 24.3-22 29-12.9-4.7-22-13.9-22-29V31l22-9.5Z" fill="#FFFFFF" fill-opacity=".14" stroke="#FFFFFF" stroke-opacity=".78" stroke-width="4"/>
+    <path d="m32.5 49.5 10 9.5 21-24" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M23 34h12M61 63h12" stroke="url(#intentproof-path)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

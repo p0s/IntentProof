@@ -1,3 +1,0 @@
-# TokenCore BitcoinCash
-
-TokenCore + BitcoinCash

@@ -1,0 +1,236 @@
+# SUBMISSION.md - IntentProof Tx Guard
+
+## Project Title
+
+```text
+IntentProof Tx Guard
+```
+
+20 characters, under the 30-character limit.
+
+## Project Description
+
+```text
+IntentProof Tx Guard routes DApp requests through a Token Core-powered firewall before imToken signs. It blocks wrong chains, unsafe approvals, and bridge mismatches, with mainnet forwarding warned and imToken-signed only.
+```
+
+## Category Recommendation
+
+Primary: `AI wallet`
+
+Also select if available:
+
+- `Security and self-custody`
+- `On-chain use cases`
+- `Wallet experience`
+
+## Completion Status
+
+```text
+Testnet-ready
+```
+
+## Project Format
+
+Primary: `Web wallet`
+
+Also select if available: `Skill`, `Website`.
+
+## Links
+
+Demo link:
+
+```text
+https://www.intentproof.xyz
+```
+
+GitHub:
+
+```text
+https://github.com/p0s/IntentProof
+```
+
+Demo video: upload a 60-90 second video under 20 MB using `DEMO_SCRIPT.md`.
+
+## Token Core Usage Notes
+
+Built from the official Token Core CLI demo branch at
+`token-core/tcx-examples/cli`. IntentProof uses `@consenlabs/tcx-wasm`, local
+Token Core testnet wallet creation/signing, transaction templates,
+analyze/decode, policy pre-checks, sign/broadcast flows, Sepolia/Base Sepolia
+configuration, and preserved CLI scripts. Token UI and Security Skill were used
+as design and safety references.
+
+## Live WalletConnect Mode
+
+Protect Wallet is the primary product surface. It connects imToken through
+WalletConnect as the final signer, accepts routed DApp WalletConnect requests,
+normalizes incoming JSON-RPC requests, runs policy/Token Core evidence checks,
+and either rejects or forwards the exact request to imToken.
+
+Users connect DApps from the main Connect a DApp card by pasting a
+WalletConnect URI, pasting/uploading a QR screenshot, or scanning a QR with the
+camera. IntentProof reads the URI in memory, asks the user to connect imToken if
+needed, then pairs the DApp through IntentProof. Custom-wallet routing remains
+available for partner/demo integrations, but it is not the primary user flow.
+
+Supported methods:
+
+- `eth_sendTransaction`
+- `personal_sign`
+- `eth_signTypedData_v4`
+- `wallet_switchEthereumChain`
+- `eth_accounts`
+- `eth_chainId`
+
+Unsafe methods such as `eth_sign`, `eth_signTransaction`, and
+`eth_sendRawTransaction` are blocked.
+
+`VITE_WALLETCONNECT_PROJECT_ID` is optional and public. If it is missing, live
+pairing shows setup-required while Examples and Token Core Lab still
+work.
+
+## Mainnet Boundary
+
+Ethereum Mainnet and Base Mainnet are supported only in Protect Wallet
+WalletConnect forwarding. Ethereum is the default live network, and mainnet
+requests show a clear warning before forwarding. IntentProof does not custody
+mainnet keys, does not sign mainnet transactions in the browser, and never
+broadcasts mainnet transactions locally. Undecoded Universal Router command
+streams are blocked on mainnet. Direct DApp-to-imToken sessions bypass
+IntentProof.
+
+Remote AI parsing and summaries are off by default in the browser. If local
+provider keys are configured, the user must opt in for the session before
+IntentProof sends intent text or decoded-analysis summaries to Gemini/Groq.
+
+## Demo Script
+
+1. Open the hosted link.
+2. Show Protect Wallet as the first screen.
+3. Show the top-right imToken account control and the Connect a DApp card.
+4. Select a PASS request and forward it to imToken in the configured/fake demo
+   flow.
+5. Select the mainnet unlimited approval request and show mainnet warning plus
+   BLOCK.
+6. Select the typed-data request and show WARN acknowledgement before forward.
+7. Optionally mention `/demo-dapp` as a small integration example.
+8. Open Examples and run all five deterministic request outcomes.
+9. Open Token Core Lab and show fresh local Token Core wallet controls.
+10. Open Activity and show a non-secret receipt summary.
+
+## End-User Path
+
+0. Connect imToken from the top-right account control.
+1. Connect a DApp through IntentProof.
+2. Review the Request Inbox.
+3. Forward safe requests to imToken or reject unsafe requests from the review card.
+4. Use Examples for deterministic hosted examples.
+7. Use Token Core Lab only for fresh local Token Core testnet wallets.
+
+## Security Design
+
+- Decode-before-sign.
+- BLOCK disables forwarding and local signing.
+- WARN requires acknowledgement.
+- Mainnet forwarding shows a warning and remains imToken-forwarded only.
+- No local browser mainnet signing.
+- Full target addresses are shown in confirmation contexts.
+- Address poisoning heuristic compares trusted recipients and warns on
+  prefix/suffix lookalikes.
+- Browser wallet-file import/export is absent.
+- Wallet secrets are never sent to AI providers.
+- `VITE_*` variables are treated as public client values.
+- `.env`, generated wallets, keystores, private keys, mnemonics, local logs, and
+  screenshots with real assets are excluded.
+
+## AI Design
+
+The deterministic parser is authoritative and works without API keys. Optional
+Gemini/Groq summaries can be used for intent/analysis language only, and their
+output is normalized by deterministic code. AI output never authorizes calldata
+or signing by itself.
+
+## User Sovereignty Design
+
+IntentProof answers three questions before signing:
+
+1. What did I ask for?
+2. What will this request actually do?
+3. Does it satisfy my policy?
+
+imToken remains the final signer for live WalletConnect mode. Token Core remains
+the local Token Core Lab and verification layer.
+
+## On-Chain Scenarios
+
+- Preview 1: safe Sepolia ERC-20 transfer, PASS.
+- Preview 2: unlimited ERC-20 approval, BLOCK.
+- Preview 3: Sepolia WETH wrap, PASS/WARN.
+- Preview 4: swap route policy violation, WARN/BLOCK.
+- Preview 5: Base/bridge mismatch for Sepolia-only intent, BLOCK.
+
+## Open-Source Credits
+
+- imToken Token Core / `@consenlabs/tcx-wasm`
+- Reown / WalletConnect, used under the WalletConnect Community License
+- ZXing browser QR decoding and `qrcode`, MIT licensed
+- Token UI and Security Skill references
+- React, Vite, TypeScript, Vitest, Testing Library, ESLint
+- Viem and public chain metadata
+
+## Known Limitations
+
+- Not an official imToken mobile integration.
+- Does not intercept DApps opened directly in imToken Browser.
+- Live WalletConnect pairing needs a public project id.
+- Production WalletConnect usage must comply with Reown / WalletConnect terms.
+- Hosted app preview flows use deterministic examples when live DApp requests are not
+  paired.
+- Swap and bridge flows are policy-evaluated candidate routes, not live
+  production aggregators.
+- Token Core Lab requires a fresh local Token Core testnet wallet and optional
+  testnet funds for broadcast.
+
+## Safety Confirmation
+
+Before submission confirm:
+
+- no seed phrases
+- no private keys
+- no passwords
+- no `.env`
+- no generated wallets or keystores
+- no local logs
+- no real asset screenshots
+- no sensitive local paths or personal data
+
+## Verification Results
+
+Latest local verification:
+
+```text
+npm run lint                 PASS
+npm run typecheck            PASS
+npm run test:unit            PASS - 27 files, 179 tests
+npm run test:cli             PASS - 4 files, 37 tests
+npm run test:smoke:chains    PASS - 1 file, 7 tests
+npm run test:ui              PASS - 3 files, 27 tests
+npm run build:ui             PASS
+npm run verify               PASS
+npm run audit:high           PASS - 0 vulnerabilities
+npm run secrets:check        PASS
+git diff --check             PASS
+```
+
+Visual QA:
+
+```text
+Protect Wallet desktop       PASS
+Mainnet warning              PASS
+WARN acknowledgement gate    PASS
+Examples support tool        PASS
+Token Core Lab support tool  PASS
+Activity support tool        PASS
+No wallet-file import UI     PASS
+```

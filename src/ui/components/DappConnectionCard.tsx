@@ -1,0 +1,315 @@
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+
+import {
+  decodeWalletConnectQrFromFile,
+  findClipboardImageFile,
+  startWalletConnectQrScanner,
+  validateWalletConnectUri,
+  type QrScannerControls,
+} from "../../lib/live/qr";
+import type { LiveConnectorState } from "../../lib/live/types";
+import { WalletConnectSetupNotice } from "./WalletConnectSetupNotice";
+
+interface DappConnectionCardProps {
+  state: LiveConnectorState;
+  pairingUri: string;
+  uriSource: "manual" | "route";
+  projectIdPresent: boolean;
+  imTokenConnected: boolean;
+  imTokenConnecting: boolean;
+  onPairingUriChange: (uri: string) => void;
+  onConnectImToken: () => void;
+  onConnect: () => void;
+  onResetLiveSessions: () => void;
+}
+
+function CameraGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 48 48" focusable="false">
+      <rect x="10" y="16" width="28" height="22" rx="7" />
+      <path d="M18 16l3-5h7l3 5" />
+      <circle cx="24" cy="27" r="7" />
+      <path d="M34 21h.01" />
+    </svg>
+  );
+}
+
+function QrGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 48 48" focusable="false">
+      <rect x="10" y="10" width="10" height="10" rx="2" />
+      <rect x="28" y="10" width="10" height="10" rx="2" />
+      <rect x="10" y="28" width="10" height="10" rx="2" />
+      <path d="M28 28h4v4h-4zM36 28h2v10h-8v-2h6zM24 10v8M24 24h4M20 24h-6M24 32v6M10 24h4M34 24h4" />
+    </svg>
+  );
+}
+
+export function DappConnectionCard({
+  state,
+  pairingUri,
+  uriSource,
+  projectIdPresent,
+  imTokenConnected,
+  imTokenConnecting,
+  onPairingUriChange,
+  onConnectImToken,
+  onConnect,
+  onResetLiveSessions,
+}: DappConnectionCardProps) {
+  const [scanStatus, setScanStatus] = useState("Ready to scan a WalletConnect QR.");
+  const [dragActive, setDragActive] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const controlsRef = useRef<QrScannerControls | undefined>(undefined);
+  const hasRoutedUri = uriSource === "route" && pairingUri.trim().length > 0;
+  const manualValidation =
+    pairingUri.trim().length > 0 ? validateWalletConnectUri(pairingUri) : undefined;
+  const hasValidPairingUri = Boolean(manualValidation?.ok);
+  const canPair =
+    projectIdPresent && imTokenConnected && hasValidPairingUri;
+  const buttonLabel =
+    !imTokenConnected && hasValidPairingUri
+      ? "Connect imToken first"
+      : hasRoutedUri
+        ? "Pair routed DApp through IntentProof"
+        : "Connect DApp through IntentProof";
+
+  const handleClipboardQr = useCallback(
+    async (file: File) => {
+      setScanStatus("Reading pasted QR screenshot.");
+      try {
+        const uri = await decodeWalletConnectQrFromFile(file);
+        onPairingUriChange(uri);
+        setScanStatus("WalletConnect URI detected from pasted screenshot.");
+      } catch (error) {
+        setScanStatus(
+          error instanceof Error
+            ? error.message
+            : "Pasted image did not contain a valid WalletConnect URI.",
+        );
+      }
+    },
+    [onPairingUriChange],
+  );
+
+  useEffect(() => {
+    function handleWindowPaste(event: ClipboardEvent) {
+      if (hasRoutedUri) return;
+      const file = event.clipboardData?.items
+        ? findClipboardImageFile(event.clipboardData.items)
+        : undefined;
+      if (!file) return;
+      event.preventDefault();
+      void handleClipboardQr(file);
+    }
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => {
+      window.removeEventListener("paste", handleWindowPaste);
+      controlsRef.current?.stop();
+    };
+  }, [handleClipboardQr, hasRoutedUri]);
+
+  async function handleScanQr() {
+    if (!videoRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanStatus("Camera is unavailable. Upload a QR screenshot or paste the WalletConnect URI.");
+      return;
+    }
+    setScanning(true);
+    setScanStatus("Point the camera at the WalletConnect QR shown by the DApp.");
+    try {
+      controlsRef.current = await startWalletConnectQrScanner({
+        video: videoRef.current,
+        onUri: (uri) => {
+          onPairingUriChange(uri);
+          setScanning(false);
+          setScanStatus("WalletConnect URI detected from camera.");
+        },
+        onError: setScanStatus,
+      });
+    } catch (error) {
+      setScanning(false);
+      setScanStatus(
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Camera access denied. Upload a QR screenshot or paste the WalletConnect URI."
+          : error instanceof Error
+            ? error.message
+            : "Camera scan failed. Upload a QR screenshot or paste the WalletConnect URI.",
+      );
+    }
+  }
+
+  function handleStopScan() {
+    controlsRef.current?.stop();
+    controlsRef.current = undefined;
+    setScanning(false);
+    setScanStatus("QR scanner stopped.");
+  }
+
+  async function handleUploadQr(file: File | undefined) {
+    if (!file) return;
+    setScanStatus("Reading QR image.");
+    try {
+      const uri = await decodeWalletConnectQrFromFile(file);
+      onPairingUriChange(uri);
+      setScanStatus("WalletConnect URI detected from uploaded image.");
+    } catch (error) {
+      setScanStatus(
+        error instanceof Error
+          ? error.message
+          : "QR image did not contain a valid WalletConnect URI.",
+      );
+    }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setDragActive(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) void handleUploadQr(file);
+  }
+
+  return (
+    <section className="surface live-connect-card">
+      <span className="eyebrow">Step 1</span>
+      <h2>Connect a DApp</h2>
+      <p>
+        {hasRoutedUri
+          ? "DApp request detected. Connect imToken here to approve the session and start receiving requests."
+          : "Add a WalletConnect connection from the DApp you want to protect. IntentProof verifies each request before imToken signs."}
+      </p>
+      {hasRoutedUri ? (
+        <div className="live-status connected">
+          <strong>DApp route detected</strong>
+          <span>WalletConnect URI captured from the URL and hidden from the address bar.</span>
+        </div>
+      ) : (
+        <>
+          <div className="dapp-intake-grid" aria-label="DApp connection intake">
+            <button
+              type="button"
+              className="qr-camera-action"
+              onClick={() => void handleScanQr()}
+            >
+              <span className="dapp-svg-orb">
+                <CameraGlyph />
+              </span>
+              <strong>Scan QR</strong>
+              <span>Use this device camera.</span>
+            </button>
+            <div
+              className={
+                dragActive ? "walletconnect-intake drag-active" : "walletconnect-intake"
+              }
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <span className="dapp-svg-orb">
+                <QrGlyph />
+              </span>
+              <label className="walletconnect-uri-field">
+                WalletConnect URI or QR screenshot
+                <input
+                  value={pairingUri}
+                  onChange={(event) => onPairingUriChange(event.target.value)}
+                  placeholder="Paste wc: URI, paste QR image, or upload screenshot"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              {manualValidation && !manualValidation.ok ? (
+                <p className="text-danger intake-error">{manualValidation.error}</p>
+              ) : null}
+              <div className="intake-actions">
+                <label className="file-button subtle-file-button">
+                  Upload QR screenshot
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => void handleUploadQr(event.target.files?.[0])}
+                  />
+                </label>
+                <span>{scanStatus}</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="qr-scan-panel"
+            data-active={scanning ? "true" : "false"}
+            aria-hidden={!scanning}
+          >
+            <video ref={videoRef} muted playsInline />
+            {scanning ? (
+              <>
+                <span>{scanStatus}</span>
+                <button type="button" className="button-secondary" onClick={handleStopScan}>
+                  Stop scanner
+                </button>
+              </>
+            ) : null}
+          </div>
+
+          <p className="demo-dapp-footnote">
+            Optional integration example: <a href="/demo-dapp">demo merchant</a>.
+          </p>
+        </>
+      )}
+      {!projectIdPresent ? (
+        <WalletConnectSetupNotice>
+          Live DApp routing needs VITE_WALLETCONNECT_PROJECT_ID. Examples
+          and the Token Core Lab still work without it.
+        </WalletConnectSetupNotice>
+      ) : null}
+      {!imTokenConnected && hasValidPairingUri ? (
+        <div className="signer-needed-callout">
+          <div>
+            <strong>Connect imToken to continue</strong>
+            <span>
+              DApp request detected. IntentProof needs your final signing wallet
+              before it can approve this DApp session.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onConnectImToken}
+            disabled={!projectIdPresent || imTokenConnecting}
+          >
+            {imTokenConnecting ? "Connecting..." : "Connect imToken to continue"}
+          </button>
+        </div>
+      ) : null}
+      <div className={`live-status ${state.status}`}>
+        <strong>{state.label}</strong>
+        <span>{state.detail}</span>
+      </div>
+      <button
+        type="button"
+        onClick={onConnect}
+        disabled={!canPair}
+      >
+        {buttonLabel}
+      </button>
+      <button type="button" className="button-secondary" onClick={onResetLiveSessions}>
+        Reset live sessions
+      </button>
+      <small>
+        Use reset after changing domains, reconnecting a DApp, or recovering from
+        a failed WalletConnect pairing.
+      </small>
+    </section>
+  );
+}

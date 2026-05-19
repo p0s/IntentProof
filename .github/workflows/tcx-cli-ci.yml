@@ -1,20 +1,40 @@
-name: TCX CLI — Quality Checks
+name: IntentProof — Quality Checks
 
 on:
   pull_request:
     paths:
-      - "token-core/tcx-examples/cli/**"
+      - ".github/workflows/tcx-cli-ci.yml"
+      - "config/**"
+      - "public/**"
+      - "scripts/**"
+      - "src/**"
+      - ".env.example"
+      - ".npmrc"
+      - "eslint.config.js"
+      - "index.html"
+      - "package-lock.json"
+      - "package.json"
+      - "tsconfig*.json"
+      - "vite.config.ts"
   push:
     branches: ["main"]
     paths:
-      - "token-core/tcx-examples/cli/**"
+      - ".github/workflows/tcx-cli-ci.yml"
+      - "config/**"
+      - "public/**"
+      - "scripts/**"
+      - "src/**"
+      - ".env.example"
+      - ".npmrc"
+      - "eslint.config.js"
+      - "index.html"
+      - "package-lock.json"
+      - "package.json"
+      - "tsconfig*.json"
+      - "vite.config.ts"
 
 permissions:
   contents: read
-
-defaults:
-  run:
-    working-directory: token-core/tcx-examples/cli
 
 jobs:
   quality:
@@ -26,9 +46,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          cache-dependency-path: token-core/tcx-examples/cli/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies from lockfile
         run: npm ci
@@ -47,6 +67,12 @@ jobs:
 
       - name: Chain compatibility smoke tests
         run: npm run test:smoke:chains
+
+      - name: UI tests
+        run: npm run test:ui
+
+      - name: Secret scan
+        run: npm run secrets:check
 
       - name: UI build
         run: npm run build:ui
