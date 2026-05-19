@@ -228,6 +228,49 @@ describe("live policy bridge", () => {
     expect(acknowledged.canForward).toBe(true);
   });
 
+  it("keeps decoded Uniswap swaps medium confidence when simulation is unavailable", () => {
+    const request = normalizeLiveRequest({
+      id: "uniswap-swap-no-sim",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: "0x0",
+          data: buildUniversalRouterV3ExactInCalldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+    request.evidence = {
+      updatedAt: "2026-05-20T00:00:00.000Z",
+      decode: {
+        status: "decoded",
+        source: "registry",
+        summary: "Universal Router execute",
+        functionName: "execute",
+      },
+      simulation: {
+        status: "unavailable",
+        provider: "none",
+        summary: "Simulation unavailable",
+        assetChanges: [],
+      },
+    };
+
+    const decision = evaluateLiveRequestPolicy({
+      request,
+      firewall: defaultFirewallSettings,
+    });
+
+    expect(decision.label).toBe("WARN");
+    expect(decision.score.confidence).toBe("medium");
+    expect(decision.score.reasons.some((reason) =>
+      reason.startsWith("Universal Router command stream decoded:"),
+    )).toBe(true);
+  });
+
   it("warn-gates unsupported Uniswap Universal Router command streams", () => {
     const request = normalizeLiveRequest({
       id: "uniswap-v4",

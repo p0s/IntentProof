@@ -210,6 +210,8 @@ function buildReviewScore(params: {
   if (reasons.length === 0) reasons.push("No policy issues were found.");
 
   let confidence: LivePolicyDecision["score"]["confidence"] = "high";
+  const hasDecodedKnownSwapRoute =
+    Boolean(universalRouterSummary) || isKnownUniswapExactInputSingleCall(request);
   if (
     titles.includes("Undecodable mainnet calldata") ||
     titles.includes("Undecoded Universal Router commands") ||
@@ -222,7 +224,7 @@ function buildReviewScore(params: {
     (evidence.simulation.status === "pending" ||
       evidence.simulation.status === "unavailable")
   ) {
-    confidence = "low";
+    confidence = hasDecodedKnownSwapRoute ? "medium" : "low";
   } else if (severity === "warn") {
     confidence = "medium";
   }

@@ -220,7 +220,7 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
 
   private async createWalletKit(): Promise<WalletKitContext> {
     const [core, { WalletKit }, { getSdkError, buildApprovedNamespaces }] = await Promise.all([
-      getIntentProofWalletConnectCore(this.projectId, "dapp-inbound"),
+      getIntentProofWalletConnectCore(this.projectId),
       import("@reown/walletkit"),
       import("@walletconnect/utils"),
     ]);

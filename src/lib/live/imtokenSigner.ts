@@ -42,7 +42,7 @@ export class ImTokenWalletConnectSigner implements LiveSignerClient {
 
   private async initProvider(showQrModal: boolean) {
     const [core, { EthereumProvider }] = await Promise.all([
-      getIntentProofWalletConnectCore(this.projectId, "imtoken-signer"),
+      getIntentProofWalletConnectCore(this.projectId),
       import("@walletconnect/ethereum-provider"),
     ]);
     const provider = (await EthereumProvider.init({

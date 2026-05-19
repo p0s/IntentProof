@@ -101,6 +101,8 @@ _Last updated: 2026-05-19_
   third-party WalletConnect pairing links.
 - [x] Reown dashboard project exists; production and local test origins are
   allowlisted. Public Project ID stays in local/deployment env only, not git.
+- [x] WalletConnect Core uses one shared project-scoped storage namespace so
+  stale sessions from earlier Project IDs cannot poison production pairing.
 
 ## Preserved Token Core Capabilities
 
