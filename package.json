@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@consenlabs/tcx-wasm": "^0.8.0",
+    "@mlc-ai/web-llm": "^0.2.83",
     "@reown/walletkit": "^1.5.5",
     "@walletconnect/core": "^2.23.9",
     "@walletconnect/ethereum-provider": "^2.23.9",

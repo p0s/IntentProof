@@ -104,6 +104,9 @@ review before relay. Direct DApp-to-imToken sessions bypass IntentProof.
 Remote AI parsing and summaries are off by default in the browser. If local
 provider keys are configured, the user must opt in for the session before
 IntentProof sends intent text or decoded-analysis summaries to Gemini/Groq.
+The Request Inbox also has optional local WebLLM review. It runs only after a
+user click, uses sub-1 GB browser models, reads the normalized IntentProof
+review packet instead of raw calldata, and never changes forwarding authority.
 
 ## Demo Script
 
@@ -152,6 +155,13 @@ Gemini/Groq summaries can be used for intent/analysis language only, and their
 output is normalized by deterministic code. AI output never authorizes calldata
 or signing by itself.
 
+For live DApp requests, optional WebLLM review runs fully in the browser. The
+AI input is a compact packet containing decoded function, chain, method,
+policy decision/reasons, warnings, blockers, simulation availability, and asset
+delta summary. It is advisory: it can suggest questions and scam-pattern hints,
+but deterministic policy, Token Core evidence, and imToken final review remain
+authoritative.
+
 ## User Sovereignty Design
 
 IntentProof answers three questions before signing:
@@ -175,6 +185,7 @@ the local Token Core Lab and verification layer.
 
 - imToken Token Core / `@consenlabs/tcx-wasm`
 - Reown / WalletConnect, used under the WalletConnect Community License
+- MLC WebLLM, Apache-2.0, for optional in-browser local model review
 - ZXing browser QR decoding and `qrcode`, MIT licensed
 - Token UI and Security Skill references
 - React, Vite, TypeScript, Vitest, Testing Library, ESLint
@@ -213,10 +224,10 @@ Latest local verification:
 ```text
 npm run lint                 PASS
 npm run typecheck            PASS
-npm run test:unit            PASS - 29 files, 192 tests
+npm run test:unit            PASS - 30 files, 200 tests
 npm run test:cli             PASS - 4 files, 37 tests
 npm run test:smoke:chains    PASS - 1 file, 7 tests
-npm run test:ui              PASS - 4 files, 30 tests
+npm run test:ui              PASS - 4 files, 31 tests
 npm run build:ui             PASS
 npm run verify               PASS
 npm run audit:high           PASS - 0 vulnerabilities

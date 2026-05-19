@@ -113,6 +113,13 @@ Simulation is evidence, not permission. A successful simulation can raise score
 confidence, while a revert or missing simulation lowers confidence and requires
 careful review. Unsupported methods or chains remain unrelayable.
 
+The Request Inbox also includes an optional local AI check. It uses WebLLM in
+the browser after the user clicks `Run local AI check`, with model options kept
+under 1 GB: SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B. The local model
+receives only IntentProof's normalized review packet: decoded function, chain,
+policy reasons, warnings, blockers, and simulation summary. It does not receive
+wallet secrets, and it is not allowed to make requests forwardable.
+
 ## Token Core Usage
 
 IntentProof is derived from the official Token Core CLI demo branch at
@@ -164,6 +171,10 @@ VITE_GROQ_API_KEY=
 are intended for local testing only; the hosted product keeps remote AI off by
 default and requires an explicit per-session opt-in before sending intent text
 or decoded-analysis summaries to a provider.
+
+WebLLM local AI review does not require an API key. The first run downloads the
+selected open model into the browser cache, so it may take time and requires a
+browser with WebGPU support.
 
 `VITE_ALCHEMY_API_KEY` and `VITE_TENDERLY_NODE_ACCESS_KEY` are also public
 browser values. Use disposable, origin-restricted keys for hosted deployments.
@@ -218,6 +229,7 @@ configured.
 
 - imToken Token Core and `@consenlabs/tcx-wasm`
 - Reown / WalletConnect, used under the WalletConnect Community License
+- MLC WebLLM for optional in-browser local AI review, Apache-2.0
 - ZXing browser QR decoding and `qrcode`, MIT licensed
 - Token UI and Security Skill as design/safety references
 - React, Vite, TypeScript, Vitest, Testing Library, ESLint

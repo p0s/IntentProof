@@ -30,6 +30,10 @@ _Last updated: 2026-05-19_
   mainnet signing or broadcast.
 - Remote AI: browser AI parsing/summaries are off by default and require an
   explicit per-session opt-in before public `VITE_*` provider keys are used.
+- In-browser AI: optional WebLLM request-inbox review runs only after the user
+  clicks it. It loads one selected local model under 1 GB, reads the normalized
+  IntentProof review packet instead of raw calldata, and never changes policy or
+  forwarding authority.
 - Wallet files: no browser import/export UI.
 - Secrets: no `.env`, generated wallets, keystores, private keys, mnemonics,
   local logs, personal data, or real-asset screenshots committed.
@@ -86,6 +90,10 @@ _Last updated: 2026-05-19_
   and require explicit review before relay.
 - [x] Live Request Inbox hard-cut to evidence-first language: routine, review,
   and cannot-relay states replace user-facing PASS/WARN/BLOCK verdicts.
+- [x] Optional in-browser LLM review added as a Request Inbox evidence factor.
+  It supports SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B WebLLM models,
+  all labeled below the 1 GB local-model budget. AI output is strict JSON and
+  advisory only.
 - [x] Added a repeatable `npm run test:e2e:dapps` harness for Tokenlon, 1inch,
   Curve, Lido, ENS, Sushi, Compound, and Aave request classes. This tests the
   real Protect Wallet inbox, scoring, reject, warning acknowledgement,
@@ -133,10 +141,10 @@ _Last updated: 2026-05-19_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 29 files, 192 tests.
+- `npm run test:unit` PASS - 30 files, 200 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 4 files, 30 tests.
+- `npm run test:ui` PASS - 4 files, 31 tests.
 - `npm run build:ui` PASS.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.

@@ -39,6 +39,12 @@ import {
 import { InboundWalletConnectWallet } from "../lib/live/inboundWallet";
 import { buildWalletCapabilitiesResponse } from "../lib/live/capabilities";
 import {
+  BROWSER_AI_MODEL_OPTIONS,
+  DEFAULT_BROWSER_AI_MODEL_ID,
+  buildAiTransactionReviewPacket,
+  runBrowserAiTransactionReview,
+} from "../lib/live/browserAiReview";
+import {
   enrichLiveRequestEvidence,
   pendingLiveRequestEvidence,
 } from "../lib/live/liveEvidence";
@@ -68,7 +74,10 @@ import type { AnalysisResult, DemoChainKey } from "../lib/types";
 import type { Address } from "viem";
 import "./App.css";
 import { DappConnectionCard } from "./components/DappConnectionCard";
-import { LiveRequestCard } from "./components/LiveRequestCard";
+import {
+  LiveRequestCard,
+  type BrowserAiReviewState,
+} from "./components/LiveRequestCard";
 import { RequestInbox } from "./components/RequestInbox";
 import { useWalletManager } from "./hooks/useWalletManager";
 import { ActivityScreen } from "./screens/ActivityScreen";
@@ -524,6 +533,12 @@ function App({ liveClients }: AppProps = {}) {
         : "Request Inbox is ready.",
   );
   const [liveActivity, setLiveActivity] = useState<LiveReceipt[]>([]);
+  const [browserAiModelId, setBrowserAiModelId] = useState(
+    DEFAULT_BROWSER_AI_MODEL_ID,
+  );
+  const [browserAiReviews, setBrowserAiReviews] = useState<
+    Record<string, BrowserAiReviewState>
+  >({});
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const liveSignerRef = useRef<LiveSignerClient | undefined>(liveClients?.signer);
   const liveInboundRef = useRef<LiveInboundClient | undefined>(liveClients?.inbound);
@@ -612,6 +627,10 @@ function App({ liveClients }: AppProps = {}) {
         warningAcknowledged: liveWarningAcknowledged,
       })
     : undefined;
+  const selectedBrowserAiState =
+    selectedLiveRequest && browserAiReviews[selectedLiveRequest.id]
+      ? browserAiReviews[selectedLiveRequest.id]
+      : ({ status: "idle" } satisfies BrowserAiReviewState);
   const WorkspaceScreen =
     activeProductTab === "preview" ? PreviewRequestsScreen : TestnetSigningScreen;
 
@@ -1303,6 +1322,57 @@ function App({ liveClients }: AppProps = {}) {
     }
   }
 
+  async function handleRunBrowserAiReview() {
+    if (!selectedLiveRequest || !liveDecision) return;
+    const requestId = selectedLiveRequest.id;
+    setBrowserAiReviews((previous) => ({
+      ...previous,
+      [requestId]: {
+        status: "loading",
+        progress: "Preparing local model. The first run downloads model files into browser cache.",
+      },
+    }));
+    try {
+      const packet = buildAiTransactionReviewPacket({
+        mode: "live",
+        request: selectedLiveRequest,
+        decision: liveDecision,
+      });
+      const review = await runBrowserAiTransactionReview({
+        modelId: browserAiModelId,
+        packet,
+        onProgress: (progress) => {
+          const percent =
+            typeof progress.progress === "number"
+              ? ` ${Math.round(progress.progress * 100)}%`
+              : "";
+          setBrowserAiReviews((previous) => ({
+            ...previous,
+            [requestId]: {
+              status: "loading",
+              progress: `${progress.text ?? "Loading local model..."}${percent}`,
+            },
+          }));
+        },
+      });
+      setBrowserAiReviews((previous) => ({
+        ...previous,
+        [requestId]: { status: "ready", review },
+      }));
+    } catch (error) {
+      setBrowserAiReviews((previous) => ({
+        ...previous,
+        [requestId]: {
+          status: "error",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Local AI review failed.",
+        },
+      }));
+    }
+  }
+
   async function handleRejectLiveRequest() {
     if (!selectedLiveRequest || !liveDecision) return;
     let rejectWarning: string | undefined;
@@ -1596,6 +1666,11 @@ function App({ liveClients }: AppProps = {}) {
               onWarningAcknowledged={setLiveWarningAcknowledged}
               onForward={() => void handleForwardLiveRequest()}
               onReject={() => void handleRejectLiveRequest()}
+              browserAiModels={BROWSER_AI_MODEL_OPTIONS}
+              browserAiModelId={browserAiModelId}
+              browserAiState={selectedBrowserAiState}
+              onBrowserAiModelChange={setBrowserAiModelId}
+              onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
             />
           }
           receiptSummary={

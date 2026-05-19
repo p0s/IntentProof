@@ -45,6 +45,35 @@ vi.mock("@zxing/browser", () => ({
   },
 }));
 
+vi.mock("@mlc-ai/web-llm", () => ({
+  CreateMLCEngine: vi.fn(async () => ({
+    chat: {
+      completions: {
+        create: vi.fn(async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  headline: "Review the normalized request",
+                  plainEnglishSummary:
+                    "The local model reviewed the decoded IntentProof packet.",
+                  userIntentMatch: "unclear",
+                  mainRisks: ["Check the target and amount in imToken."],
+                  questionsToAskBeforeSigning: ["Do you recognize this DApp?"],
+                  whyPolicyDecisionMakesSense:
+                    "IntentProof keeps deterministic policy as the authority.",
+                  scamPatternHints: ["Unexpected approvals deserve extra review."],
+                  confidence: "medium",
+                }),
+              },
+            },
+          ],
+        })),
+      },
+    },
+  })),
+}));
+
 import {
   buildFakeLiveRequests,
   FakeInboundClient,
@@ -450,6 +479,9 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/^BLOCK$/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Routine").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("SmolLM2");
 
     await user.click(screen.getByText("sign.example"));
     await user.click(
@@ -465,6 +497,31 @@ describe("App smoke test", () => {
     expect(liveReceiptSummary).toHaveTextContent(
       "Review · forwarded · Ethereum Sepolia",
     );
+  });
+
+  it("runs optional in-browser AI review without changing forwarding state", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window.navigator, "gpu", {
+      value: {},
+      configurable: true,
+    });
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          projectId: "test-project",
+          initialRequests: buildFakeLiveRequests(),
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
+    await user.click(screen.getByRole("button", { name: "Run local AI check" }));
+
+    expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
+    expect(screen.getByText("The local model reviewed the decoded IntentProof packet.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
   });
 
   it("labels and warning-gates decoded Uniswap Universal Router writes", () => {

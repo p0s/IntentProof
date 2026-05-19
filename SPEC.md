@@ -218,7 +218,10 @@ Properties:
 - run parser, decode/analyze evidence, policy compiler, Agent Permission Firewall, address heuristic, and decision engine
 - enrich live write requests with a signal stack: verified/local/registry decode
   evidence, optional Alchemy asset-change simulation, and open RPC
-  eth_call/estimateGas dry-run
+  `eth_call`/`estimateGas` dry-run
+- optionally run an in-browser WebLLM review after explicit user action. The AI
+  receives only the normalized IntentProof review packet, not raw calldata as
+  the source of truth, and it never changes policy or forwarding authority.
 - show readable request evidence, unusual signals, confidence, and relayability
 - do not present live requests as simple yes/no, safe/unsafe, or PASS/BLOCK truth
 - require acknowledgement before relaying requests with unusual or incomplete evidence
@@ -898,6 +901,23 @@ pasted WalletConnect URIs. It does not process wallet secrets, mnemonics, privat
 keystores.
 
 License note: these QR packages are MIT licensed.
+
+### 9.6 Browser AI dependency exception
+
+Optional request-inbox AI review requires local in-browser model inference,
+which the existing Token Core CLI demo does not provide. The approved exception
+is:
+
+- `@mlc-ai/web-llm` for WebGPU local LLM inference.
+
+Security reason: WebLLM is dynamically imported only after an explicit user
+click, downloads selected open model weights to browser cache, and receives only
+the normalized IntentProof review packet. It never receives seed phrases,
+private keys, keystores, wallet passwords, WalletConnect secrets, or raw
+calldata as the source of truth. Its output is advisory JSON and cannot change
+policy decisions or forwarding gates.
+
+License note: WebLLM is Apache-2.0 licensed.
 
 ---
 
