@@ -7,7 +7,7 @@ import {
   validateWalletConnectUri,
   type QrScannerControls,
 } from "../../lib/live/qr";
-import type { LiveConnectorState } from "../../lib/live/types";
+import type { LiveConnectorState, LiveDappSession } from "../../lib/live/types";
 import { WalletConnectSetupNotice } from "./WalletConnectSetupNotice";
 
 interface DappConnectionCardProps {
@@ -61,6 +61,28 @@ function statusText(status: LiveConnectorState["status"]) {
   return "Ready";
 }
 
+function sessionHost(session: LiveDappSession) {
+  if (!session.url) return "WalletConnect session";
+  try {
+    return new URL(session.url).host.replace(/^www\./, "");
+  } catch {
+    return session.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
+}
+
+function sessionInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "D";
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
+}
+
+function sessionNetworkCopy(session: LiveDappSession) {
+  if (!session.chains.length) return "Network pending";
+  if (session.chains.length === 1) return session.chains[0].replace("eip155:", "Chain ");
+  return `${session.chains.length} networks`;
+}
+
 export function DappConnectionCard({
   state,
   pairingUri,
@@ -87,6 +109,7 @@ export function DappConnectionCard({
   const shouldShowStatusDetail =
     state.status !== "idle" && state.detail.trim().length > 0;
   const canCloseConnections = state.status === "connected";
+  const connectedSessions = state.sessions ?? [];
   const buttonLabel =
     !imTokenConnected && hasValidPairingUri
       ? "Connect imToken first"
@@ -223,6 +246,42 @@ export function DappConnectionCard({
       {shouldShowStatusDetail ? (
         <p className={`connection-status-detail ${state.status}`}>{state.detail}</p>
       ) : null}
+      {connectedSessions.length ? (
+        <section className="connected-dapps-panel" aria-label="Connected DApps">
+          <div className="connected-dapps-heading">
+            <div>
+              <strong>Connected DApps</strong>
+              <span>
+                {connectedSessions.length === 1
+                  ? "IntentProof is listening for this DApp."
+                  : `IntentProof is listening for ${connectedSessions.length} DApps.`}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="button-secondary compact-close-button"
+              onClick={onResetLiveSessions}
+            >
+              Close connections
+            </button>
+          </div>
+          <ul className="connected-dapps-list">
+            {connectedSessions.map((session) => (
+              <li key={session.id}>
+                <span className="connected-dapp-avatar" aria-hidden="true">
+                  {sessionInitials(session.name)}
+                </span>
+                <span className="connected-dapp-copy">
+                  <strong>{session.name}</strong>
+                  <span>
+                    {sessionHost(session)} · {sessionNetworkCopy(session)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {hasRoutedUri ? (
         <div className="live-status connected">
           <strong>DApp route detected</strong>
@@ -332,7 +391,7 @@ export function DappConnectionCard({
       >
         {buttonLabel}
       </button>
-      {canCloseConnections ? (
+      {canCloseConnections && !connectedSessions.length ? (
         <button type="button" className="button-secondary compact-close-button" onClick={onResetLiveSessions}>
           Close connections
         </button>

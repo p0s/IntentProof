@@ -5,6 +5,7 @@ import { normalizeLiveRequest } from "./requestNormalizer";
 import type { DemoChainKey } from "../types";
 import type {
   LiveClientPairResult,
+  LiveDappSession,
   LiveInboundClient,
   LiveRequest,
   LiveSessionAccount,
@@ -60,29 +61,58 @@ export function buildFakeLiveRequests(): LiveRequest[] {
 export class FakeInboundClient implements LiveInboundClient {
   activeChainUpdates: DemoChainKey[] = [];
   approvedResults: unknown[] = [];
+  private readonly sessionFixtures?: Array<
+    Omit<LiveDappSession, "chains" | "methods"> &
+      Partial<Pick<LiveDappSession, "chains" | "methods">>
+  >;
 
-  async restoreSession(account: LiveSessionAccount): Promise<LiveClientPairResult> {
+  constructor(options: {
+    sessions?: Array<
+      Omit<LiveDappSession, "chains" | "methods"> &
+        Partial<Pick<LiveDappSession, "chains" | "methods">>
+    >;
+  } = {}) {
+    this.sessionFixtures = options.sessions;
+  }
+
+  private connectedState(account: LiveSessionAccount, detail: string): LiveClientPairResult {
+    const sessions = (
+      this.sessionFixtures ?? [
+        {
+          id: "fake-dapp-session",
+          name: "IntentProof Demo Merchant",
+          url: "https://merchant.intentproof.example",
+        },
+      ]
+    ).map((session) => ({
+      ...session,
+      chains: session.chains ?? account.chains,
+      methods: session.methods ?? ["eth_sendTransaction", "personal_sign", "eth_chainId"],
+    }));
     return {
       ok: true,
       state: {
         status: "connected",
-        label: "DApp connected",
-        detail: "Fake DApp session restored for deterministic tests.",
+        label: sessions.length > 1 ? `${sessions.length} DApps connected` : "DApp connected",
+        detail,
         account,
+        sessions,
       },
     };
   }
 
+  async restoreSession(account: LiveSessionAccount): Promise<LiveClientPairResult> {
+    return this.connectedState(
+      account,
+      "Fake DApp session restored for deterministic tests.",
+    );
+  }
+
   async connectDapp(_uri: string, account: LiveSessionAccount): Promise<LiveClientPairResult> {
-    return {
-      ok: true,
-      state: {
-        status: "connected",
-        label: "DApp connected",
-        detail: "Fake DApp session connected for deterministic tests.",
-        account,
-      },
-    };
+    return this.connectedState(
+      account,
+      "Fake DApp session connected for deterministic tests.",
+    );
   }
 
   async updateActiveChain(_account: LiveSessionAccount, chainKey: DemoChainKey): Promise<void> {

@@ -308,6 +308,9 @@ describe("App smoke test", () => {
     await waitFor(() =>
       expect(screen.getByTitle(/DApp connected/i)).toBeInTheDocument(),
     );
+    expect(screen.getByRole("region", { name: "Connected DApps" })).toBeInTheDocument();
+    expect(screen.getByText("IntentProof Demo Merchant")).toBeInTheDocument();
+    expect(screen.getByText(/merchant\.intentproof\.example/i)).toBeInTheDocument();
   });
 
   it("restores an imToken session before pairing a routed DApp URI", async () => {
@@ -334,6 +337,54 @@ describe("App smoke test", () => {
     await waitFor(() =>
       expect(screen.getByTitle(/DApp connected/i)).toBeInTheDocument(),
     );
+    expect(screen.getByText("IntentProof Demo Merchant")).toBeInTheDocument();
+  });
+
+  it("shows multiple connected DApps when more than one session is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          inbound: new FakeInboundClient({
+            sessions: [
+              {
+                id: "uniswap-session",
+                name: "Uniswap",
+                url: "https://app.uniswap.org",
+                chains: ["eip155:1"],
+              },
+              {
+                id: "ens-session",
+                name: "ENS App",
+                url: "https://app.ens.domains",
+                chains: ["eip155:1", "eip155:8453"],
+              },
+            ],
+          }),
+          projectId: "test-project",
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Connect imToken" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "WalletConnect URI or QR screenshot" }),
+      "wc:multi-dapp-demo@2?relay-protocol=irn&symKey=abc",
+    );
+    await user.click(screen.getByRole("button", { name: "Connect DApp through IntentProof" }));
+
+    await waitFor(() =>
+      expect(screen.getByTitle(/2 DApps connected/i)).toBeInTheDocument(),
+    );
+    const panel = screen.getByRole("region", { name: "Connected DApps" });
+    expect(within(panel).getByText("Uniswap")).toBeInTheDocument();
+    expect(within(panel).getByText("ENS App")).toBeInTheDocument();
+    expect(within(panel).getByText(/app\.uniswap\.org/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/app\.ens\.domains/i)).toBeInTheDocument();
   });
 
   it("captures WalletConnect URI from /wc and root query routes", () => {
@@ -521,6 +572,35 @@ describe("App smoke test", () => {
 
     expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
     expect(screen.getByText("The local model reviewed the decoded IntentProof packet.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
+  });
+
+  it("runs batch local AI review from the Request Inbox", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window.navigator, "gpu", {
+      value: {},
+      configurable: true,
+    });
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          projectId: "test-project",
+          initialRequests: buildFakeLiveRequests(),
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Review all open requests with local AI" }));
+
+    expect(
+      await screen.findByText(
+        /Open requests have readable review packets|request.*extra attention/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Local AI reviewed 3 normalized IntentProof packets/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 

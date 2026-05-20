@@ -43,12 +43,22 @@ export interface LiveSessionAccount {
   chains: LiveCaip2ChainId[];
 }
 
+export interface LiveDappSession {
+  id: string;
+  name: string;
+  url?: string;
+  icon?: string;
+  chains: LiveCaip2ChainId[];
+  methods: string[];
+}
+
 export interface LiveConnectorState {
   status: "setup-required" | "idle" | "pairing" | "connected" | "error";
   label: string;
   detail: string;
   pairingUri?: string;
   account?: LiveSessionAccount;
+  sessions?: LiveDappSession[];
 }
 
 export interface LiveTransactionRequest {

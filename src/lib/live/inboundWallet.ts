@@ -7,7 +7,9 @@ import type { DemoChainKey } from "../types";
 import type {
   LiveClientPairResult,
   LiveConnectorState,
+  LiveDappSession,
   LiveInboundClient,
+  LiveCaip2ChainId,
   LiveRequest,
   LiveSessionAccount,
 } from "./types";
@@ -48,6 +50,23 @@ type WalletKitSessionRequest = {
     chainId?: string;
   };
   request?: { method: string; params?: unknown };
+};
+
+type WalletKitActiveSession = {
+  peer?: {
+    metadata?: {
+      name?: unknown;
+      url?: unknown;
+      icons?: unknown;
+    };
+  };
+  namespaces?: Record<
+    string,
+    {
+      chains?: unknown;
+      methods?: unknown;
+    }
+  >;
 };
 
 const DEFAULT_EIP155_METHODS = [
@@ -175,6 +194,62 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     return "WalletConnect DApp";
   }
 
+  private getActiveDappSessions(walletkit?: WalletKitLike): LiveDappSession[] {
+    if (!walletkit?.getActiveSessions) return [];
+    try {
+      return Object.entries(walletkit.getActiveSessions()).map(([topic, session]) => {
+        const typed = session as WalletKitActiveSession;
+        const metadata = typed.peer?.metadata;
+        const name =
+          typeof metadata?.name === "string" && metadata.name.trim()
+            ? metadata.name.trim()
+            : "WalletConnect DApp";
+        const url =
+          typeof metadata?.url === "string" && metadata.url.trim()
+            ? metadata.url.trim()
+            : undefined;
+        const icon =
+          Array.isArray(metadata?.icons) && typeof metadata.icons[0] === "string"
+            ? metadata.icons[0]
+            : undefined;
+        const eip155 = typed.namespaces?.eip155;
+        const chains = Array.isArray(eip155?.chains)
+          ? eip155.chains.filter((chain): chain is LiveCaip2ChainId =>
+              typeof chain === "string" && chain in LIVE_CHAIN_CONFIGS,
+            )
+          : [];
+        const methods = Array.isArray(eip155?.methods)
+          ? eip155.methods.filter((method): method is string => typeof method === "string")
+          : [];
+        return {
+          id: topic,
+          name,
+          url,
+          icon,
+          chains,
+          methods,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  private connectedState(
+    walletkit: WalletKitLike | undefined,
+    account: LiveSessionAccount,
+    detail: string,
+  ): LiveConnectorState {
+    const sessions = this.getActiveDappSessions(walletkit);
+    return {
+      status: "connected",
+      label: sessions.length > 1 ? `${sessions.length} DApps connected` : "DApp connected",
+      detail,
+      account,
+      sessions,
+    };
+  }
+
   private startPendingRequestRecovery(walletkit: WalletKitLike) {
     if (typeof window === "undefined") return;
     if (!walletkit.getPendingSessionRequests) return;
@@ -265,12 +340,13 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
       }
       try {
         await walletkit.approveSession({ id: typed.id, namespaces });
-        this.onState?.({
-          status: "connected",
-          label: "DApp connected",
-          detail: "IntentProof is receiving DApp requests through WalletConnect.",
-          account,
-        });
+        this.onState?.(
+          this.connectedState(
+            walletkit,
+            account,
+            "IntentProof is receiving DApp requests through WalletConnect.",
+          ),
+        );
       } catch {
         this.onState?.({
           status: "error",
@@ -288,11 +364,25 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
 
     walletkit.on("session_request", (event: unknown) => {
       this.pushSessionRequest(event);
+      this.onState?.(
+        this.connectedState(
+          walletkit,
+          account,
+          "IntentProof received a WalletConnect request from the DApp.",
+        ),
+      );
+    });
+
+    walletkit.on("session_delete", () => {
+      const sessions = this.getActiveDappSessions(walletkit);
       this.onState?.({
-        status: "connected",
-        label: "DApp request received",
-        detail: "IntentProof received a WalletConnect request from the DApp.",
+        status: sessions.length ? "connected" : "idle",
+        label: sessions.length ? "DApp connected" : "Ready",
+        detail: sessions.length
+          ? "IntentProof is listening for connected DApp requests."
+          : "DApp session closed. Add a WalletConnect connection when ready.",
         account,
+        sessions,
       });
     });
   }
@@ -353,12 +443,11 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     }
     return {
       ok: true,
-      state: {
-        status: "connected",
-        label: "DApp connected",
-        detail: "IntentProof restored the DApp WalletConnect session and is listening for requests.",
+      state: this.connectedState(
+        walletkit,
         account,
-      },
+        "IntentProof restored the DApp WalletConnect session and is listening for requests.",
+      ),
     };
   }
 
@@ -399,12 +488,13 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
         }),
       ),
     );
-    this.onState?.({
-      status: "connected",
-      label: "DApp connected",
-      detail: `${chain.label} selected. Connected DApps were notified through WalletConnect.`,
-      account,
-    });
+    this.onState?.(
+      this.connectedState(
+        this.walletkit,
+        account,
+        `${chain.label} selected. Connected DApps were notified through WalletConnect.`,
+      ),
+    );
   }
 
   async approveRequest(request: LiveRequest, result: unknown) {
