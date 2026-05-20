@@ -16,7 +16,18 @@ export type LiveSupportedMethod =
   | "wallet_getCapabilities"
   | "eth_requestAccounts"
   | "eth_accounts"
-  | "eth_chainId";
+  | "eth_chainId"
+  | "eth_call"
+  | "eth_estimateGas"
+  | "eth_getBalance"
+  | "eth_getCode"
+  | "eth_getTransactionCount"
+  | "eth_getBlockByNumber"
+  | "eth_blockNumber"
+  | "eth_gasPrice"
+  | "eth_feeHistory"
+  | "eth_maxPriorityFeePerGas"
+  | "net_version";
 
 export type LiveUnsafeMethod =
   | "eth_sign"

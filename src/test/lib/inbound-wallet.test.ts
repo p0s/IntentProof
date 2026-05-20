@@ -196,6 +196,8 @@ describe("WalletKit inbound adapter", () => {
 
     expect(namespace.methods).toContain("wallet_getCapabilities");
     expect(namespace.methods).toContain("eth_sendTransaction");
+    expect(namespace.methods).toContain("eth_estimateGas");
+    expect(namespace.methods).toContain("eth_call");
   });
 
   it("advertises common modern DApp methods so policy can judge them after pairing", () => {

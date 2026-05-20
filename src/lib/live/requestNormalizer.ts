@@ -1,6 +1,7 @@
 import type { Address, Hex } from "viem";
 
 import { findLiveChainConfig, getLiveChainConfig } from "./chainConfig";
+import { READ_ONLY_LIVE_RPC_METHODS } from "./rpcProxy";
 import type { LiveRequest, LiveTransactionRequest } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,6 +54,7 @@ const SUPPORTED_LIVE_METHODS = new Set([
   "eth_requestAccounts",
   "eth_accounts",
   "eth_chainId",
+  ...READ_ONLY_LIVE_RPC_METHODS,
 ]);
 
 function getUnsupportedMethodReason(method: string) {

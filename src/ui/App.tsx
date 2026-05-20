@@ -56,6 +56,7 @@ import { ImTokenWalletConnectSigner } from "../lib/live/imtokenSigner";
 import { ImTokenConnectSigner } from "../lib/live/imtokenConnectSigner";
 import { evaluateLiveRequestPolicy } from "../lib/live/livePolicyBridge";
 import { isRoutineWalletCoordinationRequest } from "../lib/live/requestAssessment";
+import { isReadOnlyLiveRpcMethod, proxyReadOnlyLiveRpcRequest } from "../lib/live/rpcProxy";
 import { removeLiveRequest, selectNextLiveRequest, upsertLiveRequest } from "../lib/live/liveRequestQueue";
 import {
   readWalletConnectUriFromLocation,
@@ -173,16 +174,20 @@ function isLocalWalletCoordinationRequest(request: LiveRequest) {
     request.method === "wallet_getCapabilities" ||
     request.method === "eth_requestAccounts" ||
     request.method === "eth_accounts" ||
-    request.method === "eth_chainId"
+    request.method === "eth_chainId" ||
+    isReadOnlyLiveRpcMethod(request.method)
   );
 }
 
-function resolveLocalWalletCoordinationRequest(
+async function resolveLocalWalletCoordinationRequest(
   request: LiveRequest,
   account?: LiveConnectorState["account"],
   activeChainKey?: DemoChainKey,
 ) {
   if (request.method === "wallet_switchEthereumChain") return null;
+  if (isReadOnlyLiveRpcMethod(request.method)) {
+    return proxyReadOnlyLiveRpcRequest(request);
+  }
   if (request.method === "wallet_getCapabilities") {
     return buildWalletCapabilitiesResponse(request);
   }
@@ -890,11 +895,6 @@ function App({ liveClients }: AppProps = {}) {
       evidence: request.evidence ?? pendingLiveRequestEvidence(),
     };
     if (isRoutineWalletCoordinationRequest(request)) {
-      const result = resolveLocalWalletCoordinationRequest(
-        request,
-        activeSignerAccount,
-        selectedNetworkChainKey,
-      );
       const decisionForReceipt = evaluateLiveRequestPolicy({
         request,
         firewall,
@@ -905,9 +905,15 @@ function App({ liveClients }: AppProps = {}) {
         setLiveActionStatus("Routine request received before DApp session restore completed.");
         return;
       }
-      void inbound
-        .approveRequest(request, result)
-        .then(() => {
+      void resolveLocalWalletCoordinationRequest(
+        request,
+        activeSignerAccount,
+        selectedNetworkChainKey,
+      )
+        .then((result) =>
+          inbound.approveRequest(request, result).then(() => result),
+        )
+        .then((result) => {
           setLiveActivity((previous) => [
             {
               id: `receipt-${request.id}-${Date.now()}`,
@@ -1667,7 +1673,8 @@ function App({ liveClients }: AppProps = {}) {
         selectedNetworkChainKey,
       );
       try {
-        await liveInboundRef.current?.approveRequest(selectedLiveRequest, result);
+        const resolvedResult = await result;
+        await liveInboundRef.current?.approveRequest(selectedLiveRequest, resolvedResult);
         setLiveActivity((previous) => [
           {
             id: `receipt-${selectedLiveRequest.id}-${Date.now()}`,
@@ -1681,7 +1688,7 @@ function App({ liveClients }: AppProps = {}) {
             rejected: false,
             resolvedLocally: true,
             resultPreview:
-              typeof result === "string" ? result : stringifyWithBigInt(result, 0),
+              typeof resolvedResult === "string" ? resolvedResult : stringifyWithBigInt(resolvedResult, 0),
           },
           ...previous,
         ]);

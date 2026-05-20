@@ -4,6 +4,7 @@ import {
   getProtocolSourceLabel,
   isKnownProtocolRequest,
 } from "./protocolProfiles";
+import { isReadOnlyLiveRpcMethod } from "./rpcProxy";
 import type { LivePolicyDecision, LiveRequest } from "./types";
 
 export type EvidenceConfidence = "high" | "medium" | "low";
@@ -64,7 +65,7 @@ function issueText(decision: LivePolicyDecision) {
 }
 
 export function isRoutineWalletCoordinationRequest(request: LiveRequest) {
-  return COORDINATION_METHODS.has(request.method);
+  return COORDINATION_METHODS.has(request.method) || isReadOnlyLiveRpcMethod(request.method);
 }
 
 function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision) {

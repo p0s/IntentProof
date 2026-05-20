@@ -110,6 +110,26 @@ describe("live request normalizer", () => {
     expect(request.unsupportedReason).toBeUndefined();
   });
 
+  it("normalizes read-only RPC probes without marking them unsupported", () => {
+    const request = normalizeLiveRequest({
+      id: "estimate",
+      origin: "app.uniswap.org",
+      method: "eth_estimateGas",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x1111111111111111111111111111111111111111",
+          value: "0x0",
+        },
+      ],
+      chainId: "eip155:11155111",
+    });
+
+    expect(request.method).toBe("eth_estimateGas");
+    expect(request.chain.caip2).toBe("eip155:11155111");
+    expect(request.unsupportedReason).toBeUndefined();
+  });
+
   it("normalizes account requests without marking them unsupported", () => {
     const request = normalizeLiveRequest({
       id: "accounts",

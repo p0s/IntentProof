@@ -117,6 +117,30 @@ function baseSummary(request: LiveRequest): LiveSemanticSummary {
 }
 
 function summarizeCoordination(request: LiveRequest): LiveSemanticSummary | undefined {
+  if (
+    request.method === "eth_call" ||
+    request.method === "eth_estimateGas" ||
+    request.method === "eth_getBalance" ||
+    request.method === "eth_getCode" ||
+    request.method === "eth_getTransactionCount" ||
+    request.method === "eth_getBlockByNumber" ||
+    request.method === "eth_blockNumber" ||
+    request.method === "eth_gasPrice" ||
+    request.method === "eth_feeHistory" ||
+    request.method === "eth_maxPriorityFeePerGas" ||
+    request.method === "net_version"
+  ) {
+    return {
+      title: request.method === "eth_estimateGas" ? "Gas estimate" : "Read-only chain check",
+      subtitle: `${getProtocolSourceLabel(request)} reads ${request.chain.label}`,
+      whatItWants:
+        request.method === "eth_estimateGas"
+          ? "Estimates whether the prepared transaction can execute and what network cost it may require."
+          : "Reads public chain state so the DApp can price, quote, or validate the request before asking for a signature.",
+      userShouldCheck: ["This does not ask for a signature or transaction."],
+      chips: ["Routine", "Answered locally", request.chain.label],
+    };
+  }
   if (request.method === "wallet_getCapabilities") {
     return {
       title: "Wallet capability check",

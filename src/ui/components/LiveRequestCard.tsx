@@ -11,6 +11,7 @@ import {
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
 import { describeLiveRequestMethod } from "../../lib/live/requestDisplay";
+import { isReadOnlyLiveRpcMethod } from "../../lib/live/rpcProxy";
 import { MainnetGuard } from "./MainnetGuard";
 
 export interface BrowserAiReviewState {
@@ -108,7 +109,8 @@ function isWalletCoordinationRequest(request: LiveRequest) {
     request.method === "wallet_getCapabilities" ||
     request.method === "eth_requestAccounts" ||
     request.method === "eth_accounts" ||
-    request.method === "eth_chainId"
+    request.method === "eth_chainId" ||
+    isReadOnlyLiveRpcMethod(request.method)
   );
 }
 

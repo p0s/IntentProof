@@ -1,6 +1,7 @@
 import { getChainConfig, isMainnetChainKey } from "../chains";
 import type { AgentFirewallSettings } from "../intentproof";
 import type { LivePolicyDecision, LiveRequest } from "./types";
+import { isReadOnlyLiveRpcMethod } from "./rpcProxy";
 import { decodeUniversalRouterRequest } from "./uniswapUniversalRouter";
 
 const MAX_UINT256_HEX =
@@ -99,7 +100,8 @@ function isReadOnlyWalletCoordinationRequest(request: LiveRequest) {
     request.method === "wallet_getCapabilities" ||
     request.method === "eth_requestAccounts" ||
     request.method === "eth_accounts" ||
-    request.method === "eth_chainId"
+    request.method === "eth_chainId" ||
+    isReadOnlyLiveRpcMethod(request.method)
   );
 }
 

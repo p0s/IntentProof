@@ -22,6 +22,17 @@ export function describeLiveRequestAction(request: LiveRequest) {
   if (request.method === "eth_requestAccounts") return "Account request";
   if (request.method === "eth_accounts") return "Account request";
   if (request.method === "eth_chainId") return "Chain ID request";
+  if (request.method === "eth_call") return "Read-only contract call";
+  if (request.method === "eth_estimateGas") return "Gas estimate";
+  if (request.method === "eth_getBalance") return "Balance check";
+  if (request.method === "eth_getCode") return "Contract code check";
+  if (request.method === "eth_getTransactionCount") return "Nonce check";
+  if (request.method === "eth_getBlockByNumber") return "Block data check";
+  if (request.method === "eth_blockNumber") return "Block number check";
+  if (request.method === "eth_gasPrice") return "Gas price check";
+  if (request.method === "eth_feeHistory") return "Fee history check";
+  if (request.method === "eth_maxPriorityFeePerGas") return "Priority fee check";
+  if (request.method === "net_version") return "Network version check";
   if (request.method === "personal_sign") return "Message signature";
   if (request.method === "eth_signTypedData_v4") return "Typed-data signature";
   return request.method;
