@@ -2,6 +2,13 @@ import type {
   AiTransactionReview,
   BrowserAiModelOption,
 } from "../../lib/live/browserAiReview";
+import {
+  assessLiveRequest,
+  formatEvidenceConfidence,
+  formatExecutionStatus,
+  formatRiskLevel,
+} from "../../lib/live/requestAssessment";
+import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
 import { describeLiveRequestMethod } from "../../lib/live/requestDisplay";
 import { MainnetGuard } from "./MainnetGuard";
@@ -25,6 +32,7 @@ interface LiveRequestCardProps {
   browserAiState: BrowserAiReviewState;
   onBrowserAiModelChange: (modelId: string) => void;
   onRunBrowserAiReview: () => void;
+  forwardTargetLabel: string;
 }
 
 function shortenPreview(value: string, maxLength = 900) {
@@ -90,13 +98,6 @@ function isWalletCoordinationRequest(request: LiveRequest) {
   );
 }
 
-function reviewLabel(decision: LivePolicyDecision) {
-  if (decision.severity === "block") return "Cannot relay";
-  if (decision.severity === "warn") return "Needs review";
-  if (decision.severity === "info") return "Informational";
-  return "Routine";
-}
-
 function simulationLabel(request: LiveRequest) {
   const simulation = request.evidence?.simulation;
   if (!simulation) return "not checked yet";
@@ -133,11 +134,11 @@ export function LiveRequestCard({
   browserAiState,
   onBrowserAiModelChange,
   onRunBrowserAiReview,
+  forwardTargetLabel,
 }: LiveRequestCardProps) {
   if (!request || !decision) {
     return (
       <section className="surface live-request-card">
-        <span className="eyebrow">Step 3</span>
         <h2>Review incoming request</h2>
         <p className="muted">Connect a DApp or choose a request from the inbox.</p>
       </section>
@@ -149,18 +150,46 @@ export function LiveRequestCard({
     ? `Unsupported (${request.unsupportedChainId})`
     : request.chain.label;
   const coordinationRequest = isWalletCoordinationRequest(request);
+  const assessment = assessLiveRequest({ request, decision });
+  const semanticSummary = summarizeLiveRequest(request);
+  const forwardButtonLabel = coordinationRequest
+    ? "Answer locally"
+    : forwardTargetLabel === "imToken"
+      ? "Forward to imToken"
+      : "Forward to connected wallet";
 
   return (
     <section className="surface live-request-card">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Step 3</span>
-          <h2>Request Evidence</h2>
+          <span className="eyebrow">{assessment.sourceLabel}</span>
+          <h2>{semanticSummary.title}</h2>
         </div>
-        <span className={`decision-pill severity-${decision.severity}`}>
-          {reviewLabel(decision)}
-        </span>
+        <div className="compact-label-row">
+          <span className={`assessment-pill evidence-${assessment.evidenceConfidence}`}>
+            Evidence {formatEvidenceConfidence(assessment.evidenceConfidence)}
+          </span>
+          <span className={`assessment-pill risk-${assessment.riskLevel}`}>
+            Risk {formatRiskLevel(assessment.riskLevel)}
+          </span>
+          <span className={`assessment-pill execution-${assessment.executionStatus}`}>
+            Execution {formatExecutionStatus(assessment.executionStatus)}
+          </span>
+        </div>
       </div>
+      <section className="semantic-summary-panel">
+        <span className="eyebrow">What this request wants</span>
+        <strong>{semanticSummary.whatItWants}</strong>
+        {semanticSummary.whyDappNeedsIt ? <p>{semanticSummary.whyDappNeedsIt}</p> : null}
+        <div className="policy-chip-row">
+          {semanticSummary.chips.map((chip) => (
+            <span key={chip}>{chip}</span>
+          ))}
+          {request.chain.environment === "mainnet" ? (
+            <span className="mainnet-compact-badge">Mainnet · real assets</span>
+          ) : null}
+        </div>
+      </section>
       <div className="facts-grid">
         <div>
           <span>Origin</span>
@@ -195,12 +224,12 @@ export function LiveRequestCard({
           <strong>{calldataByteLength(request.tx?.data)}</strong>
         </div>
         <div>
-          <span>Review score</span>
-          <strong>{decision.score.value}/100</strong>
+          <span>Evidence score</span>
+          <strong>{assessment.evidenceScore}/100</strong>
         </div>
         <div>
-          <span>Score confidence</span>
-          <strong>{decision.score.confidence}</strong>
+          <span>User action</span>
+          <strong>{assessment.userActionLabel}</strong>
         </div>
         <div>
           <span>Simulation</span>
@@ -215,13 +244,26 @@ export function LiveRequestCard({
           <strong>{request.evidence?.simulation.assetChanges.length ?? 0}</strong>
         </div>
       </div>
-      <section className={`review-score-panel confidence-${decision.score.confidence}`}>
+      <section className={`review-score-panel confidence-${assessment.evidenceConfidence}`}>
         <div>
-          <span className="eyebrow">Score evidence</span>
-          <strong>{decision.score.summary}</strong>
+          <span className="eyebrow">Evidence and risk</span>
+          <strong>{semanticSummary.subtitle}</strong>
         </div>
+        <h3>Evidence confidence</h3>
         <ul>
-          {decision.score.reasons.map((reason) => (
+          {assessment.evidenceReasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+        <h3>Risk level</h3>
+        <ul>
+          {assessment.riskReasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+        <h3>User should check</h3>
+        <ul>
+          {semanticSummary.userShouldCheck.map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
         </ul>
@@ -384,9 +426,7 @@ export function LiveRequestCard({
         <button type="button" className="primary-action" onClick={onForward} disabled={!decision.canForward}>
           {decision.severity === "block"
             ? "Cannot relay with IntentProof"
-            : coordinationRequest
-              ? "Answer DApp request"
-              : "Send to imToken for review"}
+            : forwardButtonLabel}
         </button>
         <button type="button" className="button-secondary" onClick={onReject}>
           Reject request

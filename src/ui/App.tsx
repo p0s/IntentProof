@@ -41,6 +41,7 @@ import { buildWalletCapabilitiesResponse } from "../lib/live/capabilities";
 import {
   BROWSER_AI_MODEL_OPTIONS,
   DEFAULT_BROWSER_AI_MODEL_ID,
+  buildBatchAiReview,
   buildAiTransactionReviewPacket,
   runBrowserAiTransactionReview,
 } from "../lib/live/browserAiReview";
@@ -50,6 +51,7 @@ import {
 } from "../lib/live/liveEvidence";
 import { ImTokenWalletConnectSigner } from "../lib/live/imtokenSigner";
 import { evaluateLiveRequestPolicy } from "../lib/live/livePolicyBridge";
+import { isRoutineWalletCoordinationRequest } from "../lib/live/requestAssessment";
 import { removeLiveRequest, selectNextLiveRequest, upsertLiveRequest } from "../lib/live/liveRequestQueue";
 import {
   readWalletConnectUriFromLocation,
@@ -79,6 +81,7 @@ import {
   type BrowserAiReviewState,
 } from "./components/LiveRequestCard";
 import { RequestInbox } from "./components/RequestInbox";
+import type { BatchAiReviewState } from "./components/RequestInbox";
 import { useWalletManager } from "./hooks/useWalletManager";
 import { ActivityScreen } from "./screens/ActivityScreen";
 import { PreviewRequestsScreen } from "./screens/PreviewRequestsScreen";
@@ -516,12 +519,19 @@ function App({ liveClients }: AppProps = {}) {
           ? ""
           : "Examples and the Token Core Lab still work without WalletConnect.",
   });
+  const initialLiveRequests = liveClients?.initialRequests ?? [];
+  const initialRoutineLiveRequests = initialLiveRequests.filter(
+    isRoutineWalletCoordinationRequest,
+  );
+  const initialReviewLiveRequests = initialLiveRequests.filter(
+    (request) => !isRoutineWalletCoordinationRequest(request),
+  );
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>(
-    () => liveClients?.initialRequests ?? [],
+    () => initialReviewLiveRequests,
   );
   const [selectedLiveRequestId, setSelectedLiveRequestId] = useState<
     string | undefined
-  >(liveClients?.initialRequests?.[0]?.id);
+  >(initialReviewLiveRequests[0]?.id);
   const [liveWarningAcknowledged, setLiveWarningAcknowledged] = useState(false);
   const [liveActionStatus, setLiveActionStatus] = useState(
     initialDappRoute.valid
@@ -532,13 +542,29 @@ function App({ liveClients }: AppProps = {}) {
         ? "DApp route rejected because the WalletConnect URI was invalid."
         : "Request Inbox is ready.",
   );
-  const [liveActivity, setLiveActivity] = useState<LiveReceipt[]>([]);
+  const [liveActivity, setLiveActivity] = useState<LiveReceipt[]>(() =>
+    initialRoutineLiveRequests.map((request) => ({
+      id: `receipt-${request.id}-initial`,
+      requestId: request.id,
+      timestamp: new Date().toISOString(),
+      origin: request.origin,
+      method: request.method,
+      chainLabel: request.chain.label,
+      decision: "PASS",
+      forwarded: false,
+      rejected: false,
+      resolvedLocally: true,
+    })),
+  );
   const [browserAiModelId, setBrowserAiModelId] = useState(
     DEFAULT_BROWSER_AI_MODEL_ID,
   );
   const [browserAiReviews, setBrowserAiReviews] = useState<
     Record<string, BrowserAiReviewState>
   >({});
+  const [batchAiReviewState, setBatchAiReviewState] = useState<BatchAiReviewState>({
+    status: "idle",
+  });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const liveSignerRef = useRef<LiveSignerClient | undefined>(liveClients?.signer);
   const liveInboundRef = useRef<LiveInboundClient | undefined>(liveClients?.inbound);
@@ -697,6 +723,54 @@ function App({ liveClients }: AppProps = {}) {
       ...request,
       evidence: request.evidence ?? pendingLiveRequestEvidence(),
     };
+    if (isRoutineWalletCoordinationRequest(request)) {
+      const result = resolveLocalWalletCoordinationRequest(
+        request,
+        imTokenState.account,
+      );
+      const decisionForReceipt = evaluateLiveRequestPolicy({
+        request,
+        firewall,
+        warningAcknowledged: true,
+      });
+      const inbound = liveInboundRef.current;
+      if (!inbound) {
+        setLiveActionStatus("Routine request received before DApp session restore completed.");
+        return;
+      }
+      void inbound
+        .approveRequest(request, result)
+        .then(() => {
+          setLiveActivity((previous) => [
+            {
+              id: `receipt-${request.id}-${Date.now()}`,
+              requestId: request.id,
+              timestamp: new Date().toISOString(),
+              origin: request.origin,
+              method: request.method,
+              chainLabel: request.chain.label,
+              decision: decisionForReceipt.label,
+              forwarded: false,
+              rejected: false,
+              resolvedLocally: true,
+              resultPreview:
+                typeof result === "string" ? result : stringifyWithBigInt(result, 0),
+            },
+            ...previous,
+          ]);
+          setLiveActionStatus(
+            "Routine wallet coordination request answered locally.",
+          );
+        })
+        .catch((error) => {
+          setLiveActionStatus(
+            error instanceof Error
+              ? error.message
+              : "Answering the wallet coordination request failed.",
+          );
+        });
+      return;
+    }
     setLiveRequests((previous) => upsertLiveRequest(previous, queuedRequest));
     setSelectedLiveRequestId(request.id);
     setActiveProductTab("protect");
@@ -721,7 +795,7 @@ function App({ liveClients }: AppProps = {}) {
           }),
         );
       });
-  }, []);
+  }, [firewall, imTokenState.account]);
 
   async function switchConnectedNetwork(scope: NetworkScope, source: "user" | "dapp") {
     const chain = getChainConfig(scope);
@@ -1373,6 +1447,76 @@ function App({ liveClients }: AppProps = {}) {
     }
   }
 
+  async function handleRunBatchBrowserAiReview() {
+    const reviewableRequests = liveRequests.filter(
+      (request) => !isRoutineWalletCoordinationRequest(request),
+    );
+    if (reviewableRequests.length === 0) {
+      setBatchAiReviewState({
+        status: "ready",
+        review: buildBatchAiReview({ reviews: [] }),
+      });
+      return;
+    }
+    setBatchAiReviewState({
+      status: "loading",
+      progress: `Preparing local model for ${reviewableRequests.length} request(s).`,
+    });
+    try {
+      const reviews: Parameters<typeof buildBatchAiReview>[0]["reviews"] = [];
+      for (const [index, request] of reviewableRequests.entries()) {
+        const decisionForRequest = evaluateLiveRequestPolicy({
+          request,
+          firewall,
+          warningAcknowledged: false,
+        });
+        setBatchAiReviewState({
+          status: "loading",
+          progress: `Reviewing ${index + 1}/${reviewableRequests.length}: ${request.origin}`,
+        });
+        const review = await runBrowserAiTransactionReview({
+          modelId: browserAiModelId,
+          packet: buildAiTransactionReviewPacket({
+            mode: "live",
+            request,
+            decision: decisionForRequest,
+          }),
+          onProgress: (progress) => {
+            const percent =
+              typeof progress.progress === "number"
+                ? ` ${Math.round(progress.progress * 100)}%`
+                : "";
+            setBatchAiReviewState({
+              status: "loading",
+              progress: `${progress.text ?? "Loading local model..."}${percent}`,
+            });
+          },
+        });
+        setBrowserAiReviews((previous) => ({
+          ...previous,
+          [request.id]: { status: "ready", review },
+        }));
+        reviews.push({
+          requestId: request.id,
+          policyDecision: decisionForRequest.label,
+          review,
+        });
+      }
+      setBatchAiReviewState({
+        status: "ready",
+        review: buildBatchAiReview({ reviews }),
+      });
+    } catch (error) {
+      setBatchAiReviewState({
+        status: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Local AI batch review failed.",
+      });
+    }
+  }
+
   async function handleRejectLiveRequest() {
     if (!selectedLiveRequest || !liveDecision) return;
     let rejectWarning: string | undefined;
@@ -1656,6 +1800,8 @@ function App({ liveClients }: AppProps = {}) {
                       : false,
                 })
               }
+              batchAiState={batchAiReviewState}
+              onRunBatchAiReview={() => void handleRunBatchBrowserAiReview()}
             />
           }
           signingCard={
@@ -1671,6 +1817,11 @@ function App({ liveClients }: AppProps = {}) {
               browserAiState={selectedBrowserAiState}
               onBrowserAiModelChange={setBrowserAiModelId}
               onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
+              forwardTargetLabel={
+                imTokenState.account && /imtoken/i.test(imTokenState.label)
+                  ? "imToken"
+                  : "connected wallet"
+              }
             />
           }
           receiptSummary={

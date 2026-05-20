@@ -1,24 +1,27 @@
+import type { BatchAiReview } from "../../lib/live/browserAiReview";
+import {
+  assessLiveRequest,
+  formatEvidenceConfidence,
+  formatExecutionStatus,
+  formatRiskLevel,
+} from "../../lib/live/requestAssessment";
+import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
-import { describeLiveRequestAction } from "../../lib/live/requestDisplay";
 
 interface RequestInboxProps {
   requests: LiveRequest[];
   selectedRequestId?: string;
   getDecision: (request: LiveRequest) => LivePolicyDecision;
   onSelect: (requestId: string) => void;
+  batchAiState: BatchAiReviewState;
+  onRunBatchAiReview: () => void;
 }
 
-function evidenceLine(request: LiveRequest) {
-  const simulation = request.evidence?.simulation.status ?? "not checked";
-  const decode = request.evidence?.decode.status ?? "not checked";
-  return `Simulation: ${simulation} · Decode: ${decode}`;
-}
-
-function reviewLabel(decision: LivePolicyDecision) {
-  if (decision.severity === "block") return "Cannot relay";
-  if (decision.severity === "warn") return "Review";
-  if (decision.severity === "info") return "Info";
-  return "Routine";
+export interface BatchAiReviewState {
+  status: "idle" | "loading" | "ready" | "error";
+  progress?: string;
+  review?: BatchAiReview;
+  error?: string;
 }
 
 export function RequestInbox({
@@ -26,16 +29,40 @@ export function RequestInbox({
   selectedRequestId,
   getDecision,
   onSelect,
+  batchAiState,
+  onRunBatchAiReview,
 }: RequestInboxProps) {
   return (
     <section className="surface request-inbox">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Step 2</span>
+          <span className="eyebrow">Live requests</span>
           <h2>Request Inbox</h2>
         </div>
         <span className="muted">{requests.length} request(s)</span>
       </div>
+      <div className="batch-ai-toolbar" aria-label="Batch local AI review">
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={onRunBatchAiReview}
+          disabled={requests.length === 0 || batchAiState.status === "loading"}
+        >
+          {batchAiState.status === "loading"
+            ? "Reviewing open requests..."
+            : "Review all open requests with local AI"}
+        </button>
+        {batchAiState.progress ? <span>{batchAiState.progress}</span> : null}
+      </div>
+      {batchAiState.error ? (
+        <p className="browser-ai-error">{batchAiState.error}</p>
+      ) : null}
+      {batchAiState.review ? (
+        <div className="batch-ai-summary">
+          <strong>{batchAiState.review.overallHeadline}</strong>
+          <span>{batchAiState.review.overallSummary}</span>
+        </div>
+      ) : null}
       <div className="request-list">
         {requests.length === 0 ? (
           <div className="empty-inbox">
@@ -50,12 +77,13 @@ export function RequestInbox({
         ) : null}
         {requests.map((request) => {
           const decision = getDecision(request);
-          const action = describeLiveRequestAction(request);
+          const assessment = assessLiveRequest({ request, decision });
+          const summary = summarizeLiveRequest(request);
           return (
             <button
               key={request.id}
               type="button"
-              aria-label={`${request.origin} ${action} ${reviewLabel(decision)} ${request.chain.label} evidence score ${decision.score.value} ${decision.score.confidence} confidence`}
+              aria-label={`${assessment.sourceLabel} ${summary.title} Evidence ${assessment.evidenceConfidence} Risk ${assessment.riskLevel} Execution ${assessment.executionStatus}`}
               className={
                 request.id === selectedRequestId
                   ? "request-row active"
@@ -63,22 +91,24 @@ export function RequestInbox({
               }
               onClick={() => onSelect(request.id)}
             >
-              <span>{request.origin}</span>
-              <strong>{action}</strong>
+              <span>{assessment.sourceLabel}</span>
+              <strong>{summary.title}</strong>
+              <small className="request-reason">{summary.whatItWants}</small>
               <span className="request-row-meta">
-                <em className={`decision-pill severity-${decision.severity}`}>
-                  {reviewLabel(decision)}
+                <em className={`assessment-pill evidence-${assessment.evidenceConfidence}`}>
+                  Evidence {formatEvidenceConfidence(assessment.evidenceConfidence)}
+                </em>
+                <em className={`assessment-pill risk-${assessment.riskLevel}`}>
+                  Risk {formatRiskLevel(assessment.riskLevel)}
+                </em>
+                <em className={`assessment-pill execution-${assessment.executionStatus}`}>
+                  Execution {formatExecutionStatus(assessment.executionStatus)}
                 </em>
                 <small>{request.chain.label}</small>
               </span>
-              <span className="request-score-line">
-                <b>{decision.score.value}</b>
-                <span>{decision.score.confidence} confidence</span>
-              </span>
-              <small className="request-reason">
-                {decision.score.reasons[0] ?? decision.score.summary}
+              <small className="request-evidence-line">
+                {assessment.evidenceReasons[0]} · {assessment.userActionLabel}
               </small>
-              <small className="request-evidence-line">{evidenceLine(request)}</small>
             </button>
           );
         })}

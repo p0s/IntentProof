@@ -6,7 +6,7 @@ Protect Wallet is a routed WalletConnect mode for imToken users:
 DApp WalletConnect URI or QR
 -> IntentProof pairs the DApp after imToken connects
 -> IntentProof receives and explains the request
--> routine / review / cannot-relay evidence state
+-> evidence confidence, risk, execution, and action state
 -> reviewable request is forwarded to imToken for final signing
 -> result or rejection is returned to the DApp session
 ```
@@ -65,6 +65,10 @@ transactions.
 - Token Core remains the testnet signing and transaction-evidence layer.
 - Requests IntentProof cannot mediate are never forwarded.
 - Unusual or incomplete evidence requires explicit acknowledgement.
+- Evidence confidence is separate from risk: a recognized DApp or decoded
+  contract can still require review.
+- Routine account, chain, and capability requests are answered locally and
+  moved to Activity.
 - Mainnet unlimited approvals are highlighted as high-impact permissions.
 - Undecodable mainnet transaction calldata is shown as incomplete evidence.
 - Full target addresses are shown before forwarding.

@@ -667,10 +667,26 @@
 }
 
 .live-status.setup-required,
-.live-status.error,
-.mainnet-guard {
+.live-status.error {
   border-color: rgba(216, 137, 18, 0.34);
   background: #fffaf3;
+}
+
+.mainnet-guard {
+  border-color: rgba(216, 137, 18, 0.26);
+  background: rgba(255, 250, 243, 0.72);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.mainnet-guard details {
+  color: var(--text-soft);
+}
+
+.mainnet-guard summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
 }
 
 .live-status.connected {
@@ -681,6 +697,39 @@
 .request-list {
   display: grid;
   gap: 10px;
+}
+
+.batch-ai-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(22, 119, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(22, 119, 255, 0.05);
+  padding: 10px;
+}
+
+.batch-ai-toolbar span {
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.batch-ai-summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(22, 119, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(22, 119, 255, 0.07);
+  padding: 12px;
+}
+
+.batch-ai-summary span {
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .empty-inbox {
@@ -723,31 +772,72 @@
 
 .request-row-meta {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   justify-self: end;
 }
 
-.request-score-line,
 .request-reason,
 .request-evidence-line {
   grid-column: 1 / -1;
 }
 
-.request-score-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.request-score-line b {
-  color: var(--text-h);
-  font-size: 18px;
-  line-height: 1;
-}
-
 .request-reason {
   line-height: 1.35;
+}
+
+.request-evidence-line {
+  color: var(--text-soft);
+  line-height: 1.35;
+}
+
+.assessment-pill {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 840;
+  line-height: 1;
+  padding: 5px 9px;
+}
+
+.assessment-pill.evidence-high,
+.assessment-pill.risk-routine,
+.assessment-pill.execution-success,
+.assessment-pill.execution-not-applicable {
+  border-color: rgba(22, 163, 111, 0.24);
+  background: rgba(22, 163, 111, 0.09);
+  color: #0f7f55;
+}
+
+.assessment-pill.evidence-medium,
+.assessment-pill.risk-standard,
+.assessment-pill.execution-pending {
+  border-color: rgba(22, 119, 255, 0.22);
+  background: rgba(22, 119, 255, 0.08);
+  color: var(--accent-strong);
+}
+
+.assessment-pill.risk-needs-review,
+.assessment-pill.execution-unavailable {
+  border-color: rgba(216, 137, 18, 0.28);
+  background: rgba(216, 137, 18, 0.1);
+  color: #9a620d;
+}
+
+.assessment-pill.evidence-low,
+.assessment-pill.risk-high-impact,
+.assessment-pill.risk-blocked,
+.assessment-pill.execution-revert {
+  border-color: rgba(235, 47, 59, 0.24);
+  background: rgba(235, 47, 59, 0.08);
+  color: var(--danger);
 }
 
 .demo-dapp-shell {
@@ -1588,6 +1678,43 @@
   font-weight: 750;
 }
 
+.compact-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.semantic-summary-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 119, 255, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(247, 251, 255, 0.9) 0%, rgba(255, 255, 255, 0.72) 100%),
+    var(--surface-bg);
+  padding: 14px;
+}
+
+.semantic-summary-panel > strong {
+  color: var(--text-h);
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.semantic-summary-panel p {
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mainnet-compact-badge {
+  border-color: rgba(216, 137, 18, 0.3) !important;
+  background: rgba(216, 137, 18, 0.11) !important;
+  color: #9a620d !important;
+}
+
 .review-score-panel {
   display: grid;
   gap: 10px;
@@ -2210,6 +2337,47 @@ a:hover {
   border-color: rgba(102, 167, 255, 0.24);
   background: rgba(102, 167, 255, 0.1);
   color: #8ab9ff;
+}
+
+.intentproof-shell[data-theme="dark"] .batch-ai-toolbar,
+.intentproof-shell[data-theme="dark"] .batch-ai-summary,
+.intentproof-shell[data-theme="dark"] .semantic-summary-panel {
+  border-color: rgba(76, 84, 99, 0.7);
+  background: rgba(21, 23, 28, 0.66);
+}
+
+.intentproof-shell[data-theme="dark"] .assessment-pill.evidence-high,
+.intentproof-shell[data-theme="dark"] .assessment-pill.risk-routine,
+.intentproof-shell[data-theme="dark"] .assessment-pill.execution-success,
+.intentproof-shell[data-theme="dark"] .assessment-pill.execution-not-applicable {
+  border-color: rgba(47, 210, 141, 0.32);
+  background: rgba(47, 210, 141, 0.1);
+  color: #7be5b4;
+}
+
+.intentproof-shell[data-theme="dark"] .assessment-pill.evidence-medium,
+.intentproof-shell[data-theme="dark"] .assessment-pill.risk-standard,
+.intentproof-shell[data-theme="dark"] .assessment-pill.execution-pending {
+  border-color: rgba(85, 164, 255, 0.34);
+  background: rgba(85, 164, 255, 0.1);
+  color: #9ccaff;
+}
+
+.intentproof-shell[data-theme="dark"] .assessment-pill.risk-needs-review,
+.intentproof-shell[data-theme="dark"] .assessment-pill.execution-unavailable,
+.intentproof-shell[data-theme="dark"] .mainnet-compact-badge {
+  border-color: rgba(242, 163, 58, 0.36) !important;
+  background: rgba(242, 163, 58, 0.1) !important;
+  color: #f5c47f !important;
+}
+
+.intentproof-shell[data-theme="dark"] .assessment-pill.evidence-low,
+.intentproof-shell[data-theme="dark"] .assessment-pill.risk-high-impact,
+.intentproof-shell[data-theme="dark"] .assessment-pill.risk-blocked,
+.intentproof-shell[data-theme="dark"] .assessment-pill.execution-revert {
+  border-color: rgba(255, 98, 106, 0.38);
+  background: rgba(255, 98, 106, 0.1);
+  color: #ff9da3;
 }
 
 .intentproof-shell[data-theme="dark"] .dapp-svg-orb {

@@ -54,6 +54,17 @@ export interface AiTransactionReview {
   confidence: "low" | "medium" | "high";
 }
 
+export interface BatchAiReview {
+  overallHeadline: string;
+  overallSummary: string;
+  requests: Array<{
+    requestId: string;
+    headline: string;
+    attentionLevel: "routine" | "review" | "high";
+    summary: string;
+  }>;
+}
+
 export interface BrowserAiModelOption {
   id: string;
   label: string;
@@ -462,4 +473,39 @@ export async function runBrowserAiTransactionReview(params: {
   const content = response.choices?.[0]?.message?.content;
   if (!content) throw new Error("Local AI did not return a review.");
   return parseAiTransactionReviewOutput(content);
+}
+
+export function buildBatchAiReview(params: {
+  reviews: Array<{
+    requestId: string;
+    policyDecision: AiTransactionReviewPacket["policyDecision"];
+    review: AiTransactionReview;
+  }>;
+}): BatchAiReview {
+  const highCount = params.reviews.filter(
+    (item) =>
+      item.policyDecision === "BLOCK" ||
+      item.review.confidence === "low" ||
+      item.review.mainRisks.some((risk) => /unlimited|revert|unknown|undecod/i.test(risk)),
+  ).length;
+  const reviewCount = params.reviews.length;
+  return {
+    overallHeadline: highCount
+      ? `${highCount} request${highCount === 1 ? "" : "s"} need extra attention`
+      : "Open requests have readable review packets",
+    overallSummary: reviewCount
+      ? `Local AI reviewed ${reviewCount} normalized IntentProof packet${reviewCount === 1 ? "" : "s"}. This is advisory only; deterministic policy and wallet review still control forwarding.`
+      : "There are no non-routine open requests for local AI review.",
+    requests: params.reviews.map((item) => ({
+      requestId: item.requestId,
+      headline: item.review.headline,
+      attentionLevel:
+        item.policyDecision === "BLOCK" || item.review.confidence === "low"
+          ? "high"
+          : item.review.mainRisks.length
+            ? "review"
+            : "routine",
+      summary: item.review.plainEnglishSummary,
+    })),
+  };
 }

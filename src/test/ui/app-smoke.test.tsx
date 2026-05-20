@@ -452,13 +452,12 @@ describe("App smoke test", () => {
     await user.click(screen.getByText("swap.example"));
     expect(screen.getByLabelText("Mainnet warning")).toBeInTheDocument();
     expect(screen.queryByLabelText("Allow mainnet requests for this session")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeDisabled();
-    expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
+    expect(screen.getAllByText("Risk High Impact").length).toBeGreaterThan(0);
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 
   it("keeps populated live review surfaces evidence-first", async () => {
@@ -477,8 +476,9 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/^PASS$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^WARN$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^BLOCK$/)).not.toBeInTheDocument();
-    expect(screen.getAllByText("Routine").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Evidence /).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Risk /).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Review all open requests with local AI" })).toBeInTheDocument();
     expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("SmolLM2");
@@ -487,7 +487,7 @@ describe("App smoke test", () => {
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    await user.click(screen.getByRole("button", { name: "Send to imToken for review" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     await openSupportTool("Open Activity");
 
     const liveReceiptSummary = screen.getByLabelText("Live receipt summary");
@@ -515,13 +515,13 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
     await user.click(screen.getByRole("button", { name: "Run local AI check" }));
 
     expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
     expect(screen.getByText("The local model reviewed the decoded IntentProof packet.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 
   it("labels and warning-gates decoded Uniswap Universal Router writes", () => {
@@ -552,16 +552,17 @@ describe("App smoke test", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Uniswap.*Swap transaction.*Review.*Ethereum Mainnet/i,
+        name: /Uniswap.*Swap transaction.*Evidence high.*Risk needs-review/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Swap transaction (eth_sendTransaction)")).toBeInTheDocument();
     expect(screen.getByText("Decoded Universal Router route")).toBeInTheDocument();
-    expect(screen.getAllByText("66").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("medium confidence").length).toBeGreaterThan(0);
-    expect(screen.getByText("Score evidence")).toBeInTheDocument();
+    expect(screen.getAllByText("Evidence High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getByText("Evidence score")).toBeInTheDocument();
+    expect(screen.getByText("What this request wants")).toBeInTheDocument();
     expect(
-      screen.getAllByText(/Universal Router command stream decoded:/).length,
+      screen.getAllByText("Universal Router command stream decoded into route evidence.").length,
     ).toBeGreaterThan(0);
   });
 
@@ -588,10 +589,10 @@ describe("App smoke test", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /legacy-wallet\.example.*Cannot relay.*Ethereum Mainnet/i,
+        name: /legacy-wallet\.example.*eth_sendRawTransaction.*Risk blocked/i,
       }),
     );
-    expect(screen.getAllByText("Cannot relay").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Risk Blocked").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Cannot relay with IntentProof" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Reject request" }));
 
@@ -613,13 +614,13 @@ describe("App smoke test", () => {
     );
 
     await user.click(screen.getByText("sign.example"));
-    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeDisabled();
+    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
 
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    await user.click(screen.getByRole("button", { name: "Send to imToken for review" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
 
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("fake-live-typed-data");
@@ -638,8 +639,8 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getAllByText("Routine").length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: "Send to imToken for review" }));
+    expect(screen.getAllByText("Risk Standard").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
 
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("fake-live-safe-transfer");
@@ -667,7 +668,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getAllByText("Network switch request").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Switch to Ethereum Mainnet").length).toBeGreaterThan(0);
     expect(
       screen.getByText("Network switch request (wallet_switchEthereumChain)"),
     ).toBeInTheDocument();
@@ -678,7 +679,7 @@ describe("App smoke test", () => {
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    await user.click(screen.getByRole("button", { name: "Answer DApp request" }));
+    await user.click(screen.getByRole("button", { name: "Answer locally" }));
 
     expect(signer.forwarded).toBe(0);
     expect(signer.switchedChains).toContain("ethereum");
@@ -694,7 +695,6 @@ describe("App smoke test", () => {
   });
 
   it("answers wallet capability probes locally so DApps can send transaction requests", async () => {
-    const user = userEvent.setup();
     const signer = new FakeSignerClient();
     const inbound = new FakeInboundClient();
     render(
@@ -719,15 +719,10 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getAllByText("Wallet capability check").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Wallet capability check (wallet_getCapabilities)"),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Answer DApp request" }));
-
+    expect(screen.queryByText("Wallet capability check")).not.toBeInTheDocument();
+    expect(screen.getByText("No live DApp requests yet.")).toBeInTheDocument();
     expect(signer.forwarded).toBe(0);
-    expect(inbound.approvedResults).toEqual([{ "0x1": {}, "0x2105": {} }]);
-    expect(screen.getByText("Wallet coordination request approved. The DApp can continue to the transaction request.")).toBeInTheDocument();
+    expect(inbound.approvedResults).toEqual([]);
     await openSupportTool("Open Activity");
     expect(screen.getByLabelText("Live receipt summary")).toHaveTextContent(
       "Routine · resolved · Ethereum Mainnet",

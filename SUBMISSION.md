@@ -116,7 +116,7 @@ review packet instead of raw calldata, and never changes forwarding authority.
 4. Select a routine request and forward it to imToken in the configured/fake demo
    flow.
 5. Select the mainnet unlimited approval request and show the approval details,
-   score, confidence, and acknowledgement gate.
+   evidence confidence, risk level, execution status, and acknowledgement gate.
 6. Select the typed-data request and show human-readable review before forward.
 7. Optionally mention `/demo-dapp` as a small integration example.
 8. Open Examples and run all five deterministic request outcomes.
@@ -137,6 +137,10 @@ review packet instead of raw calldata, and never changes forwarding authority.
 - Decode-before-sign.
 - Requests IntentProof cannot mediate disable forwarding.
 - Unusual or incomplete evidence requires acknowledgement.
+- Evidence confidence is separate from transaction risk and execution status.
+- Known DApp does not mean automatically safe.
+- Routine account, chain, and capability requests are answered locally and
+  moved to Activity.
 - Mainnet forwarding shows a warning and remains imToken-forwarded only.
 - No local browser mainnet signing.
 - Full target addresses are shown in confirmation contexts.
@@ -161,6 +165,9 @@ policy decision/reasons, warnings, blockers, simulation availability, and asset
 delta summary. It is advisory: it can suggest questions and scam-pattern hints,
 but deterministic policy, Token Core evidence, and imToken final review remain
 authoritative.
+
+Users can run local AI on a selected request or batch-review all open
+non-routine requests. The result never changes forwarding gates.
 
 ## User Sovereignty Design
 

@@ -219,10 +219,14 @@ Properties:
 - enrich live write requests with a signal stack: verified/local/registry decode
   evidence, optional Alchemy asset-change simulation, and open RPC
   `eth_call`/`estimateGas` dry-run
-- optionally run an in-browser WebLLM review after explicit user action. The AI
-  receives only the normalized IntentProof review packet, not raw calldata as
-  the source of truth, and it never changes policy or forwarding authority.
-- show readable request evidence, unusual signals, confidence, and relayability
+- optionally run an in-browser WebLLM review for one request or all open
+  non-routine requests after explicit user action. The AI receives only the
+  normalized IntentProof review packet, not raw calldata as the source of
+  truth, and it never changes policy or forwarding authority.
+- show readable request evidence, unusual signals, evidence confidence, risk
+  level, execution status, and relayability as separate concepts
+- answer routine account, chain, and capability requests locally and move them
+  to Activity instead of the primary Request Inbox
 - do not present live requests as simple yes/no, safe/unsafe, or PASS/BLOCK truth
 - require acknowledgement before relaying requests with unusual or incomplete evidence
 - do not relay methods/chains that IntentProof technically cannot mediate

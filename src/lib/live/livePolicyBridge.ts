@@ -8,6 +8,7 @@ const MAX_UINT256_HEX =
 const ERC20_TRANSFER_SELECTOR = "0xa9059cbb";
 const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
 const WETH_DEPOSIT_SELECTOR = "0xd0e30db0";
+const LIDO_SUBMIT_SELECTOR = "0xa1903eab";
 const UNISWAP_EXACT_INPUT_SINGLE_SELECTOR = "0x414bf389";
 const UNIVERSAL_ROUTER_EXECUTE_SELECTORS = new Set(["0x24856bc3", "0x3593564c"]);
 
@@ -82,7 +83,8 @@ function hasUnknownCalldata(request: LiveRequest) {
   return !(
     data.startsWith(ERC20_TRANSFER_SELECTOR) ||
     data.startsWith(ERC20_APPROVE_SELECTOR) ||
-    data.startsWith(WETH_DEPOSIT_SELECTOR)
+    data.startsWith(WETH_DEPOSIT_SELECTOR) ||
+    data.startsWith(LIDO_SUBMIT_SELECTOR)
   );
 }
 

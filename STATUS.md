@@ -81,19 +81,28 @@ _Last updated: 2026-05-19_
 - [x] Common Uniswap Universal Router v2/v3 swap command streams decode into
   WARN-gated route evidence instead of fail-closed BLOCK. Unsupported router
   commands still block on mainnet.
-- [x] Live Request Inbox scoring now includes decode evidence, optional
+- [x] Live Request Inbox now separates evidence confidence, risk level,
+  execution/simulation status, and required user action. Known DApp or decoded
+  protocol evidence can be high confidence even when the request still needs
+  user review.
+- [x] Request evidence includes decode evidence, protocol profiles, optional
   server-side Tenderly simulation, optional Alchemy asset-change simulation,
   open RPC dry-run simulation, gas estimate evidence, and explicit
   unavailable/revert states.
-- [x] Simulation success can raise confidence, but simulation metadata never
-  bypasses unrelayable method/chain checks. Simulated reverts lower confidence
-  and require explicit review before relay.
+- [x] Simulation metadata never bypasses unrelayable method/chain checks.
+  Simulated reverts affect execution status and review risk rather than
+  automatically making evidence low quality.
+- [x] Routine account, chain, and capability requests are answered locally or
+  moved to Activity instead of staying in the primary Request Inbox.
 - [x] Live Request Inbox hard-cut to evidence-first language: routine, review,
   and cannot-relay states replace user-facing PASS/WARN/BLOCK verdicts.
 - [x] Optional in-browser LLM review added as a Request Inbox evidence factor.
   It supports SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B WebLLM models,
   all labeled below the 1 GB local-model budget. AI output is strict JSON and
   advisory only.
+- [x] Batch local AI review can review all open non-routine requests from
+  sanitized normalized packets. AI remains advisory and cannot change
+  forwarding gates.
 - [x] Added a repeatable `npm run test:e2e:dapps` harness for Tokenlon, 1inch,
   Curve, Lido, ENS, Sushi, Compound, and Aave request classes. This tests the
   real Protect Wallet inbox, scoring, reject, warning acknowledgement,

@@ -45,11 +45,16 @@ export const uniswapV3PoolAbi = parseAbi([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint8 feeProtocol,bool unlocked)",
 ]);
 
+export const lidoStEthAbi = parseAbi([
+  "function submit(address referral) payable returns (uint256)",
+]);
+
 export const commonAbiCandidates = [
   erc20Abi,
   wethAbi,
   uniswapV2RouterAbi,
   uniswapV3SwapRouterAbi,
+  lidoStEthAbi,
 ];
 
 export const selectorLabelMap: Record<string, string> = {
@@ -65,4 +70,5 @@ export const selectorLabelMap: Record<string, string> = {
     "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
   "0x414bf389":
     "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+  "0xa1903eab": "submit(address)",
 };

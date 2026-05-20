@@ -25,7 +25,8 @@ steps:
 
 1. Connect a DApp: partner DApps open IntentProof with a routed WalletConnect
    URI, or users paste a URI, paste/upload a QR screenshot, or scan a QR.
-2. Request Inbox: live DApp requests appear with score, confidence, and reason.
+2. Request Inbox: live DApp requests appear with separate evidence confidence,
+   risk level, execution/simulation status, and user action.
 3. Review incoming request: IntentProof normalizes the JSON-RPC request, applies
    Token Core evidence and policy checks, and shows routine/review/cannot-relay
    status.
@@ -103,22 +104,28 @@ same screen.
 
 ## Live Rating Evidence
 
-IntentProof scores live DApp requests from multiple deterministic signals:
-calldata decode evidence, contract/source evidence, policy checks, Uniswap route
+IntentProof now separates evidence quality from transaction risk. A known DApp
+or decoded contract can show high evidence confidence while still needing user
+review because it is mainnet, high-impact, or simulated to revert.
+
+Evidence comes from deterministic signals: calldata decode evidence,
+contract/source evidence, known protocol profiles, policy checks, Uniswap route
 decode where supported, optional Alchemy asset-change simulation, and open RPC
-`eth_call`/`estimateGas` dry-runs. Alchemy is optional; without it the app still
-uses the configured chain RPC as a free/open dry-run provider.
+`eth_call`/`estimateGas` dry-runs. Risk is shown separately as routine,
+standard, needs review, high impact, or blocked. Execution is shown separately
+as success, revert, unavailable, pending, or not applicable.
 
-Simulation is evidence, not permission. A successful simulation can raise score
-confidence, while a revert or missing simulation lowers confidence and requires
-careful review. Unsupported methods or chains remain unrelayable.
+Routine wallet coordination requests such as account, chain, and capability
+checks are answered locally and recorded in Activity instead of cluttering the
+primary Request Inbox. Unsupported methods or chains remain unrelayable.
 
-The Request Inbox also includes an optional local AI check. It uses WebLLM in
-the browser after the user clicks `Run local AI check`, with model options kept
-under 1 GB: SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B. The local model
-receives only IntentProof's normalized review packet: decoded function, chain,
-policy reasons, warnings, blockers, and simulation summary. It does not receive
-wallet secrets, and it is not allowed to make requests forwardable.
+The Request Inbox also includes optional local AI review. It uses WebLLM in the
+browser after the user clicks `Run local AI check` or `Review all open requests
+with local AI`, with model options kept under 1 GB: SmolLM2 360M, TinyLlama
+1.1B 1k, and Qwen2.5 0.5B. The local model receives only IntentProof's
+normalized review packet: decoded function, chain, policy reasons, warnings,
+blockers, and simulation summary. It does not receive wallet secrets, and it is
+not allowed to make requests forwardable.
 
 ## Token Core Usage
 

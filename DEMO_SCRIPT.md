@@ -49,7 +49,7 @@ Select the safe Sepolia transfer request.
 Narration:
 
 ```text
-This request is a readable ERC-20 transfer on Sepolia. IntentProof shows the decoded action, addresses, value, and evidence score before forwarding the exact request to imToken for final signing.
+This request is a readable ERC-20 transfer on Sepolia. IntentProof shows the decoded action, addresses, value, evidence confidence, risk, and execution status before forwarding the exact request to imToken for final signing.
 ```
 
 ### 43-55s - Mainnet Approval Review
@@ -59,7 +59,7 @@ Select the mainnet unlimited approval request.
 Narration:
 
 ```text
-Mainnet requests show a warning. This request asks for unlimited USDC approval, so IntentProof calls out the high-impact permission and requires explicit review before any relay to imToken.
+Mainnet requests show a compact warning. This request asks for unlimited USDC approval, so IntentProof keeps evidence confidence separate from high-impact risk and requires explicit review before any relay to imToken.
 ```
 
 ### 55-64s - Signature Review

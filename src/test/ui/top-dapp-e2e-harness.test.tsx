@@ -171,21 +171,22 @@ describe("top dapp WalletConnect E2E harness", () => {
       />,
     );
 
-    expect(screen.getByText("8 request(s)")).toBeInTheDocument();
-    for (const origin of [
-      "tokenlon.im",
-      "1inch.com",
-      "curve.fi",
-      "lido.fi",
-      "app.ens.domains",
-      "sushi.com",
-      "compound.finance",
-      "app.aave.com",
+    expect(screen.getByText("6 request(s)")).toBeInTheDocument();
+    for (const sourceLabel of [
+      "1inch",
+      "Curve",
+      "Lido",
+      "ENS",
+      "Sushi",
+      "Aave",
     ]) {
-      expect(screen.getAllByText(origin).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(sourceLabel).length).toBeGreaterThan(0);
     }
-    expect(screen.getAllByText("Score evidence").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Mainnet assets are real, so the request needs user review.").length).toBeGreaterThan(0);
+    expect(screen.queryByText("tokenlon.im")).not.toBeInTheDocument();
+    expect(screen.queryByText("compound.finance")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Evidence /).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Risk /).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mainnet request uses real assets or account authority.").length).toBeGreaterThan(0);
   });
 
   it("proves cannot-relay, review, routine, and coordination behavior without third-party URI handoff", async () => {
@@ -203,36 +204,50 @@ describe("top dapp WalletConnect E2E harness", () => {
       />,
     );
 
-    await user.click(screen.getByText("curve.fi"));
-    expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeDisabled();
+    await user.click(
+      screen.getByRole("button", {
+        name: /Curve.*USDC approval.*Risk high-impact/i,
+      }),
+    );
+    expect(screen.getAllByText("Risk High Impact").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Reject request" }));
     expect(signer.forwarded).toBe(0);
 
-    await user.click(screen.getByText("1inch.com"));
-    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Send to imToken for review" })).toBeDisabled();
+    await user.click(
+      screen.getByRole("button", {
+        name: /1inch.*Message signature.*Risk needs-review/i,
+      }),
+    );
+    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    await user.click(screen.getByRole("button", { name: "Send to imToken for review" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("one-inch-sign");
 
-    await user.click(screen.getByText("compound.finance"));
-    await user.click(screen.getByRole("button", { name: "Answer DApp request" }));
-    expect(inbound.approvedResults).toContainEqual({ "0x1": {}, "0x2105": {} });
+    expect(screen.queryByText("compound.finance")).not.toBeInTheDocument();
 
-    await user.click(screen.getByText("sushi.com"));
+    await user.click(
+      screen.getByRole("button", {
+        name: /Sushi.*USDC approval.*Risk needs-review/i,
+      }),
+    );
     await user.click(
       screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
     );
-    await user.click(screen.getByRole("button", { name: "Send to imToken for review" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     await waitFor(() => expect(signer.forwarded).toBe(2));
     expect(signer.lastRequestId).toBe("sushi-limited-approval");
+    expect(inbound.approvedResults).toEqual([
+      "0xfake-imtoken-result",
+      "0xfake-imtoken-result",
+    ]);
   });
 });
