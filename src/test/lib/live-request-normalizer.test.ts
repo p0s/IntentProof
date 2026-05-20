@@ -65,6 +65,37 @@ describe("live request normalizer", () => {
     expect(request.chain.caip2).toBe("eip155:84532");
   });
 
+  it("normalizes signature account and payload order for message signing", () => {
+    const personal = normalizeLiveRequest({
+      id: "personal",
+      origin: "demo",
+      method: "personal_sign",
+      params: [
+        "0x7777777777777777777777777777777777777777",
+        "0x48656c6c6f",
+      ],
+      chainId: "eip155:11155111",
+    });
+    const typed = normalizeLiveRequest({
+      id: "typed",
+      origin: "demo",
+      method: "eth_signTypedData_v4",
+      params: [
+        { domain: { name: "Demo" }, types: {}, primaryType: "Demo", message: {} },
+        "0x7777777777777777777777777777777777777777",
+      ],
+      chainId: "eip155:11155111",
+    });
+
+    expect(personal.signatureAddress).toBe("0x7777777777777777777777777777777777777777");
+    expect(personal.message).toBe("0x48656c6c6f");
+    expect(typed.signatureAddress).toBe("0x7777777777777777777777777777777777777777");
+    expect(typed.typedData).toMatchObject({
+      domain: { name: "Demo" },
+      primaryType: "Demo",
+    });
+  });
+
   it("normalizes wallet capability probes without marking them unsupported", () => {
     const request = normalizeLiveRequest({
       id: "capabilities",

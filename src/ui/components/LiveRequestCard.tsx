@@ -88,6 +88,20 @@ function reviewPayload(request: LiveRequest) {
   };
 }
 
+function localVaultSigningEvidence(request: LiveRequest, forwardTargetLabel: string) {
+  if (forwardTargetLabel !== "Local Token Core Vault") return undefined;
+  if (request.method === "personal_sign") {
+    return "Local vault signs this as Token Core sign_message PersonalSign. Hex messages must be UTF-8 readable; unreadable bytes fail closed.";
+  }
+  if (request.method === "eth_signTypedData_v4") {
+    return "Local vault hashes this EIP-712 typed-data packet with viem, then signs the digest with Token Core sign_message EcSign.";
+  }
+  if (request.method === "eth_sendTransaction") {
+    return "Local vault signs this transaction with Token Core sign_tx, using EIP-1559 fees or legacy gasPrice from the reviewed request.";
+  }
+  return undefined;
+}
+
 function isWalletCoordinationRequest(request: LiveRequest) {
   return (
     request.method === "wallet_switchEthereumChain" ||
@@ -146,6 +160,10 @@ export function LiveRequestCard({
   }
 
   const payload = reviewPayload(request);
+  const vaultSigningEvidence = localVaultSigningEvidence(
+    request,
+    forwardTargetLabel,
+  );
   const chainLabel = request.unsupportedChainId
     ? `Unsupported (${request.unsupportedChainId})`
     : request.chain.label;
@@ -391,6 +409,12 @@ export function LiveRequestCard({
           <summary>{payload.label}</summary>
           <pre>{payload.preview}</pre>
         </details>
+      ) : null}
+      {vaultSigningEvidence ? (
+        <section className="semantic-summary-panel">
+          <span className="eyebrow">Local Token Core Vault signing evidence</span>
+          <strong>{vaultSigningEvidence}</strong>
+        </section>
       ) : null}
       <MainnetGuard request={request} />
       <p className="decision-summary">{decision.summary}</p>

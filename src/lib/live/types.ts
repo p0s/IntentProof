@@ -67,6 +67,10 @@ export interface LiveTransactionRequest {
   data?: Hex;
   value?: Hex;
   gas?: Hex;
+  gasPrice?: Hex;
+  maxFeePerGas?: Hex;
+  maxPriorityFeePerGas?: Hex;
+  nonce?: Hex;
   chainId?: Hex;
 }
 
@@ -85,6 +89,7 @@ export interface LiveRequest {
     params?: unknown;
   };
   tx?: LiveTransactionRequest;
+  signatureAddress?: Address;
   typedData?: unknown;
   message?: string;
   unsupportedReason?: string;

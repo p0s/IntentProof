@@ -53,7 +53,11 @@ export function evaluateLocalVaultSigningGate({
       };
     }
   }
-  if (request.method !== "eth_sendTransaction") {
+  if (
+    request.method !== "eth_sendTransaction" &&
+    request.method !== "personal_sign" &&
+    request.method !== "eth_signTypedData_v4"
+  ) {
     return {
       allowed: false,
       reason: `${request.method} is not supported by Local Token Core Vault signing yet.`,

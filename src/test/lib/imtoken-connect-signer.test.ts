@@ -83,4 +83,19 @@ describe("ImTokenConnectSigner", () => {
       expect.objectContaining({ method: "eth_sendRawTransaction" }),
     );
   });
+
+  it("times out when imToken Web leaves the popup request unresolved", async () => {
+    vi.useFakeTimers();
+    requestMock.mockImplementation(() => new Promise(() => undefined));
+    const signer = new ImTokenConnectSigner({ requestTimeoutMs: 25 });
+
+    const result = signer.connectImToken();
+    const expectation = expect(result).rejects.toThrow(
+      /Connecting imToken Web timed out/,
+    );
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expectation;
+    vi.useRealTimers();
+  });
 });

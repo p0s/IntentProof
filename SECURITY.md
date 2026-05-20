@@ -19,6 +19,9 @@ official imToken mobile integration.
   non-blocked request.
 - Local custody: Token Core wallet creation and signing happen locally when the
   Local Token Core Vault or Token Core Lab is selected.
+- Message custody: Local Token Core Vault can sign reviewed `personal_sign`
+  messages and EIP-712 typed-data digests only after the same IntentProof
+  gates. Arbitrary unreadable personal-sign bytes fail closed.
 - Browser UI custody hard-cut: wallet-file import/export is not available in
   the web product. Use fresh generated wallets only.
 - Explicit broadcast: signing and broadcasting are separate actions.

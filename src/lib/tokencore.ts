@@ -1,6 +1,7 @@
 import initTokenCore, {
   create_keystore,
   derive_accounts,
+  sign_message,
   sign_tx,
 } from "@consenlabs/tcx-wasm";
 import {
@@ -40,9 +41,15 @@ interface SignResult {
   txHash: `0x${string}`;
   preparedRequest: Required<Pick<TxRequestDraft, "chainId" | "gas" | "nonce">> &
     TxRequestDraft & {
+      gasPrice?: bigint;
       maxFeePerGas?: bigint;
       maxPriorityFeePerGas?: bigint;
     };
+}
+
+interface SignMessageResult {
+  signature: `0x${string}`;
+  signatureType: "PersonalSign" | "EcSign";
 }
 
 function assertInit() {
@@ -273,24 +280,100 @@ async function prepareTransactionForSigning(
 ) {
   const nonce =
     draft.nonce ?? (await client.getTransactionCount({ address: account }));
-  const [gas, fees] = await Promise.all([
+  const gas =
     draft.gas ??
-      client.estimateGas({
-        account,
-        to: draft.to,
-        data: draft.data,
-        value: draft.value,
-      }),
-    client.estimateFeesPerGas(),
-  ]);
+    (await client.estimateGas({
+      account,
+      to: draft.to,
+      data: draft.data,
+      value: draft.value,
+    }));
+
+  if (draft.gasPrice !== undefined) {
+    return {
+      ...draft,
+      chainId: draft.chainId,
+      nonce,
+      gas,
+      gasPrice: draft.gasPrice,
+      maxFeePerGas: undefined,
+      maxPriorityFeePerGas: undefined,
+    };
+  }
+
+  const fees =
+    draft.maxFeePerGas !== undefined && draft.maxPriorityFeePerGas !== undefined
+      ? undefined
+      : await client.estimateFeesPerGas();
 
   return {
     ...draft,
     chainId: draft.chainId,
     nonce,
     gas,
-    maxFeePerGas: fees.maxFeePerGas ?? undefined,
-    maxPriorityFeePerGas: fees.maxPriorityFeePerGas ?? undefined,
+    maxFeePerGas: draft.maxFeePerGas ?? fees?.maxFeePerGas ?? undefined,
+    maxPriorityFeePerGas:
+      draft.maxPriorityFeePerGas ?? fees?.maxPriorityFeePerGas ?? undefined,
+  };
+}
+
+function buildTokenCoreSignTxInput(
+  preparedRequest: Awaited<ReturnType<typeof prepareTransactionForSigning>>,
+) {
+  const commonInput = {
+    nonce: String(preparedRequest.nonce),
+    gasLimit: String(preparedRequest.gas),
+    to: preparedRequest.to,
+    value: String(preparedRequest.value ?? 0n),
+    data: preparedRequest.data ?? "0x",
+    chainId: String(preparedRequest.chainId),
+  };
+
+  if (preparedRequest.gasPrice !== undefined) {
+    return {
+      ...commonInput,
+      gasPrice: String(preparedRequest.gasPrice),
+    };
+  }
+
+  return {
+    ...commonInput,
+    txType: "02",
+    maxFeePerGas: String(preparedRequest.maxFeePerGas ?? 0n),
+    maxPriorityFeePerGas: String(preparedRequest.maxPriorityFeePerGas ?? 0n),
+    accessList: [],
+  };
+}
+
+export async function signTokenCoreMessage(
+  wallet: StoredTokenCoreWallet,
+  password: string,
+  params: {
+    message: string;
+    signatureType: "PersonalSign" | "EcSign";
+  },
+): Promise<SignMessageResult> {
+  assertInit();
+  const result = (await withPrfKeyCandidates(password, (prfKey) =>
+    JSON.parse(
+      sign_message(
+        JSON.stringify({
+          keystoreJson: wallet.keystoreJson,
+          prfKey,
+          chain: "ETHEREUM",
+          derivationPath: wallet.derivationPath,
+          input: {
+            message: params.message,
+            signatureType: params.signatureType,
+          },
+        }),
+      ),
+    ),
+  )) as { signature: string };
+
+  return {
+    signature: ensureHexPrefix(result.signature),
+    signatureType: params.signatureType,
   };
 }
 
@@ -316,20 +399,7 @@ export async function signDraftTransaction(
           prfKey,
           chain: "ETHEREUM",
           derivationPath: wallet.derivationPath,
-          input: {
-            nonce: String(preparedRequest.nonce),
-            gasLimit: String(preparedRequest.gas),
-            to: preparedRequest.to,
-            value: String(preparedRequest.value ?? 0n),
-            data: preparedRequest.data ?? "0x",
-            chainId: String(preparedRequest.chainId),
-            txType: "02",
-            maxFeePerGas: String(preparedRequest.maxFeePerGas ?? 0n),
-            maxPriorityFeePerGas: String(
-              preparedRequest.maxPriorityFeePerGas ?? 0n,
-            ),
-            accessList: [],
-          },
+          input: buildTokenCoreSignTxInput(preparedRequest),
         }),
       ),
     ),

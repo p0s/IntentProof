@@ -6,6 +6,17 @@ type ImTokenWebProviderLike = {
   request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
 };
 
+type ResettableImTokenWebProviderLike = ImTokenWebProviderLike & {
+  popupCommunicator?: { disconnect?: () => void };
+  iframeCommunicator?: { disconnect?: () => void };
+};
+
+interface ImTokenConnectSignerOptions {
+  requestTimeoutMs?: number;
+}
+
+const DEFAULT_IMTOKEN_REQUEST_TIMEOUT_MS = 30_000;
+
 const FORWARDABLE_METHODS = new Set([
   "eth_sendTransaction",
   "personal_sign",
@@ -31,12 +42,25 @@ function parseChainId(value: unknown) {
 
 export class ImTokenConnectSigner implements LiveSignerClient {
   private provider?: ImTokenWebProviderLike;
+  private readonly requestTimeoutMs: number;
+
+  constructor(options: ImTokenConnectSignerOptions = {}) {
+    this.requestTimeoutMs =
+      options.requestTimeoutMs ?? DEFAULT_IMTOKEN_REQUEST_TIMEOUT_MS;
+  }
 
   private async initProvider() {
     if (this.provider) return this.provider;
     const { ImTokenWebProvider } = await import("@consenlabs/imtoken-connect");
-    this.provider = new ImTokenWebProvider() as ImTokenWebProviderLike;
+    this.provider = new ImTokenWebProvider() as unknown as ImTokenWebProviderLike;
     return this.provider;
+  }
+
+  private resetProvider() {
+    const provider = this.provider as ResettableImTokenWebProviderLike | undefined;
+    provider?.popupCommunicator?.disconnect?.();
+    provider?.iframeCommunicator?.disconnect?.();
+    this.provider = undefined;
   }
 
   private connectedState(address?: `0x${string}`, chainId?: number): LiveClientPairResult {
@@ -55,11 +79,37 @@ export class ImTokenConnectSigner implements LiveSignerClient {
     };
   }
 
+  private async requestProvider(
+    args: { method: string; params?: unknown[] | object },
+    timeoutContext: string,
+  ) {
+    const provider = await this.initProvider();
+    try {
+      return await withTimeout(
+        provider.request(args),
+        this.requestTimeoutMs,
+        `${timeoutContext} timed out. Finish Sign in or Create account in the imToken Web popup, then retry. If the popup stays on Processing more requests, use WalletConnect wallet while imToken Web is unavailable.`,
+      );
+    } catch (error) {
+      this.resetProvider();
+      throw error;
+    }
+  }
+
   async restoreSession(): Promise<LiveClientPairResult> {
     try {
-      const provider = await this.initProvider();
-      const accounts = asAccounts(await provider.request({ method: "eth_accounts" }));
-      const chainId = parseChainId(await provider.request({ method: "eth_chainId" }));
+      const accounts = asAccounts(
+        await this.requestProvider(
+          { method: "eth_accounts" },
+          "Checking imToken Web session",
+        ),
+      );
+      const chainId = parseChainId(
+        await this.requestProvider(
+          { method: "eth_chainId" },
+          "Checking imToken Web network",
+        ),
+      );
       return this.connectedState(accounts[0], chainId);
     } catch {
       return this.connectedState();
@@ -67,11 +117,19 @@ export class ImTokenConnectSigner implements LiveSignerClient {
   }
 
   async connectImToken(): Promise<LiveClientPairResult> {
-    const provider = await this.initProvider();
+    this.resetProvider();
     const accounts = asAccounts(
-      await provider.request({ method: "eth_requestAccounts" }),
+      await this.requestProvider(
+        { method: "eth_requestAccounts" },
+        "Connecting imToken Web",
+      ),
     );
-    const chainId = parseChainId(await provider.request({ method: "eth_chainId" }));
+    const chainId = parseChainId(
+      await this.requestProvider(
+        { method: "eth_chainId" },
+        "Reading imToken Web network",
+      ),
+    );
     return this.connectedState(accounts[0], chainId);
   }
 
@@ -79,32 +137,71 @@ export class ImTokenConnectSigner implements LiveSignerClient {
     if (!FORWARDABLE_METHODS.has(request.method)) {
       throw new Error(`${request.method} is not forwarded to imToken Web.`);
     }
-    const provider = await this.initProvider();
     if (request.method !== "wallet_switchEthereumChain") {
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: request.chain.hexChainId }],
-      });
+      await this.requestProvider(
+        {
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: request.chain.hexChainId }],
+        },
+        "Switching imToken Web network",
+      );
     }
-    return provider.request({
-      method: request.method,
-      params: request.request.params as unknown[] | object | undefined,
-    });
+    return this.requestProvider(
+      {
+        method: request.method,
+        params: request.request.params as unknown[] | object | undefined,
+      },
+      "Forwarding request to imToken Web",
+    );
   }
 
   async switchChain(chainKey: DemoChainKey): Promise<LiveClientPairResult> {
     const chain = getLiveChainByKey(chainKey);
     if (!chain) throw new Error("IntentProof does not support that chain.");
-    const provider = await this.initProvider();
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: chain.hexChainId }],
-    });
-    const accounts = asAccounts(await provider.request({ method: "eth_accounts" }));
+    await this.requestProvider(
+      {
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: chain.hexChainId }],
+      },
+      "Switching imToken Web network",
+    );
+    const accounts = asAccounts(
+      await this.requestProvider(
+        { method: "eth_accounts" },
+        "Reading imToken Web account",
+      ),
+    );
     return this.connectedState(accounts[0], chain.chainId);
   }
 
   async disconnect() {
-    this.provider = undefined;
+    this.resetProvider();
+  }
+}
+
+async function withTimeout<T>(
+  promiseLike: Promise<T> | T,
+  timeoutMs: number,
+  message: string,
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  const promise = Promise.resolve(promiseLike);
+  const guardedPromise = promise.catch((error) => {
+    if (timedOut) return new Promise<T>(() => undefined);
+    throw error;
+  });
+  try {
+    return await Promise.race([
+      guardedPromise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          reject(new Error(message));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }

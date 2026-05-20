@@ -18,7 +18,11 @@ Original path: token-core/tcx-examples/cli
 - Local Token Core Vault creation in the browser product
 - encrypted Token Core keystore storage for the Local Token Core Vault
 - account derivation for the DApp-exposed local vault address
-- reviewed local vault signing after IntentProof policy gates
+- reviewed local vault transaction signing after IntentProof policy gates
+- reviewed local vault `personal_sign` via Token Core `sign_message`
+- reviewed local vault EIP-712 signing through viem typed-data hashing plus
+  Token Core `sign_message` EcSign
+- EVM signing with EIP-1559 fee fields or legacy `gasPrice`
 - fresh local testnet wallet creation in the browser UI
 - CLI-managed wallet file support for local development
 - transaction templates for ETH transfer, ERC-20 transfer, ERC-20 approval,

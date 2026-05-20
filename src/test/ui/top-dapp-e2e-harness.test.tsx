@@ -10,6 +10,10 @@ vi.mock("../../lib/tokencore", () => ({
     rawTransaction: "0xsigned",
     txHash: "0xhash",
   }),
+  signTokenCoreMessage: vi.fn().mockResolvedValue({
+    signature: "0xsignature",
+    signatureType: "PersonalSign",
+  }),
   broadcastSignedTransaction: vi.fn(),
 }));
 

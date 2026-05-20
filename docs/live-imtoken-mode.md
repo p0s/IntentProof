@@ -56,7 +56,7 @@ Unsupported or unsafe methods are not relayed by default:
 - Base Sepolia: `eip155:84532`
 
 Ethereum mainnet is the default live review network. Mainnet requests show a
-visible warning. imToken Web and WalletConnect fallback keep custody in the
+visible warning. imToken Web and WalletConnect wallet keep custody in the
 external signer. Local Token Core Vault mainnet signing is disabled by default
 and requires explicit session opt-in, vault unlock, acknowledgement, and a
 non-blocked request.
@@ -66,6 +66,9 @@ non-blocked request.
 - imToken Web remains the primary external signer.
 - Local Token Core Vault is a first-class Token Core signer and stores only
   encrypted keystore data in this browser.
+- Local Token Core Vault can sign reviewed transactions, UTF-8-readable
+  `personal_sign` messages, and EIP-712 typed-data digests after IntentProof
+  gates. Mainnet local vault signing remains session opt-in.
 - Token Core remains the testnet lab and transaction-evidence layer.
 - Requests IntentProof cannot mediate are never forwarded.
 - Unusual or incomplete evidence requires explicit acknowledgement.

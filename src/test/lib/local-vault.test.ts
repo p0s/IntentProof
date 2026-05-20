@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/tokencore", () => ({
   broadcastSignedTransaction: vi.fn(),
   signDraftTransaction: vi.fn(),
+  signTokenCoreMessage: vi.fn(),
 }));
 
 import {
@@ -19,6 +20,10 @@ import {
 import { signLiveRequestWithLocalVault } from "../../lib/localVault/vaultSigner";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import type { LivePolicyDecision } from "../../lib/live/types";
+import {
+  signDraftTransaction,
+  signTokenCoreMessage,
+} from "../../lib/tokencore";
 
 const record: LocalTokenCoreVaultRecord = {
   id: "vault-1",
@@ -47,6 +52,8 @@ const passDecision: LivePolicyDecision = {
 describe("Local Token Core Vault", () => {
   beforeEach(async () => {
     await clearLocalTokenCoreVaults();
+    vi.mocked(signDraftTransaction).mockReset();
+    vi.mocked(signTokenCoreMessage).mockReset();
   });
 
   it("stores encrypted keystore metadata without plaintext vault secrets", async () => {
@@ -164,6 +171,52 @@ describe("Local Token Core Vault", () => {
     ).toBe(true);
   });
 
+  it("allows reviewed message and typed-data signing gates when unlocked", () => {
+    const personal = normalizeLiveRequest({
+      id: "personal",
+      origin: "login.example",
+      method: "personal_sign",
+      params: ["0x48656c6c6f", record.address],
+      chainId: "eip155:11155111",
+    });
+    const typed = normalizeLiveRequest({
+      id: "typed",
+      origin: "ens.domains",
+      method: "eth_signTypedData_v4",
+      params: [
+        record.address,
+        JSON.stringify({
+          domain: { name: "Demo" },
+          types: { Commitment: [{ name: "contents", type: "string" }] },
+          primaryType: "Commitment",
+          message: { contents: "Review" },
+        }),
+      ],
+      chainId: "eip155:11155111",
+    });
+
+    expect(
+      evaluateLocalVaultSigningGate({
+        request: personal,
+        decision: passDecision,
+        vaultUnlocked: true,
+        mainnetEnabled: false,
+        mainnetAcknowledged: false,
+        warningAcknowledged: true,
+      }).allowed,
+    ).toBe(true);
+    expect(
+      evaluateLocalVaultSigningGate({
+        request: typed,
+        decision: passDecision,
+        vaultUnlocked: true,
+        mainnetEnabled: false,
+        mainnetAcknowledged: false,
+        warningAcknowledged: true,
+      }).allowed,
+    ).toBe(true);
+  });
+
   it("rejects local signing when the DApp sender differs from the vault address", async () => {
     const request = normalizeLiveRequest({
       id: "wrong-sender",
@@ -187,5 +240,132 @@ describe("Local Token Core Vault", () => {
         request,
       }),
     ).rejects.toThrow(/sender does not match/i);
+  });
+
+  it("passes legacy gasPrice transactions through to Token Core signing", async () => {
+    vi.mocked(signDraftTransaction).mockResolvedValue({
+      rawTransaction: "0xsigned",
+      txHash: "0xhash",
+      preparedRequest: {
+        chainId: 11155111,
+        gas: 21000n,
+        nonce: 1,
+        gasPrice: 1_000_000_000n,
+      },
+    });
+    const request = normalizeLiveRequest({
+      id: "legacy-gas",
+      origin: "legacy.example",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: record.address,
+          to: "0x1111111111111111111111111111111111111111",
+          value: "0x0",
+          data: "0x",
+          gas: "0x5208",
+          gasPrice: "0x3b9aca00",
+          chainId: "0xaa36a7",
+        },
+      ],
+    });
+
+    const result = await signLiveRequestWithLocalVault({
+      wallet: vaultRecordToStoredWallet(record),
+      password: "test-pass",
+      request,
+      broadcast: false,
+    });
+
+    expect(result.kind).toBe("signed");
+    expect(vi.mocked(signDraftTransaction).mock.calls[0]?.[3]).toMatchObject({
+      gas: 21000n,
+      gasPrice: 1_000_000_000n,
+      maxFeePerGas: undefined,
+      maxPriorityFeePerGas: undefined,
+    });
+  });
+
+  it("signs personal_sign with Token Core sign_message PersonalSign", async () => {
+    vi.mocked(signTokenCoreMessage).mockResolvedValue({
+      signature: "0xsig",
+      signatureType: "PersonalSign",
+    });
+    const request = normalizeLiveRequest({
+      id: "personal",
+      origin: "login.example",
+      method: "personal_sign",
+      params: ["0x48656c6c6f", record.address],
+      chainId: "eip155:11155111",
+    });
+
+    const result = await signLiveRequestWithLocalVault({
+      wallet: vaultRecordToStoredWallet(record),
+      password: "test-pass",
+      request,
+    });
+
+    expect(result).toMatchObject({
+      kind: "signature",
+      signature: "0xsig",
+      signatureMethod: "personal_sign",
+    });
+    expect(vi.mocked(signTokenCoreMessage)).toHaveBeenCalledWith(
+      expect.objectContaining({ address: record.address }),
+      "test-pass",
+      {
+        message: "Hello",
+        signatureType: "PersonalSign",
+      },
+    );
+  });
+
+  it("signs eth_signTypedData_v4 by hashing EIP-712 data then Token Core EcSign", async () => {
+    vi.mocked(signTokenCoreMessage).mockResolvedValue({
+      signature: "0xtyped",
+      signatureType: "EcSign",
+    });
+    const typedData = {
+      domain: {
+        name: "IntentProof Demo",
+        version: "1",
+        chainId: 11155111,
+        verifyingContract: "0x1111111111111111111111111111111111111111",
+      },
+      types: {
+        EIP712Domain: [
+          { name: "name", type: "string" },
+          { name: "version", type: "string" },
+          { name: "chainId", type: "uint256" },
+          { name: "verifyingContract", type: "address" },
+        ],
+        Commitment: [{ name: "contents", type: "string" }],
+      },
+      primaryType: "Commitment",
+      message: { contents: "Review before signing" },
+    };
+    const request = normalizeLiveRequest({
+      id: "typed",
+      origin: "ens.domains",
+      method: "eth_signTypedData_v4",
+      params: [record.address, JSON.stringify(typedData)],
+      chainId: "eip155:11155111",
+    });
+
+    const result = await signLiveRequestWithLocalVault({
+      wallet: vaultRecordToStoredWallet(record),
+      password: "test-pass",
+      request,
+    });
+
+    expect(result).toMatchObject({
+      kind: "signature",
+      signature: "0xtyped",
+      signatureMethod: "eth_signTypedData_v4",
+      evidence: "Viem EIP-712 hash + Token Core sign_message EcSign",
+    });
+    const call = vi.mocked(signTokenCoreMessage).mock.calls[0];
+    expect(call?.[2].signatureType).toBe("EcSign");
+    expect(call?.[2].message).toMatch(/^0x[a-fA-F0-9]{64}$/);
   });
 });

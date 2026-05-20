@@ -15,6 +15,8 @@ interface RequestInboxProps {
   onSelect: (requestId: string) => void;
   batchAiState: BatchAiReviewState;
   onRunBatchAiReview: () => void;
+  localAiCacheState: LocalAiCacheState;
+  onClearLocalAiCache: () => void;
 }
 
 export interface BatchAiReviewState {
@@ -24,6 +26,11 @@ export interface BatchAiReviewState {
   error?: string;
 }
 
+export interface LocalAiCacheState {
+  status: "idle" | "clearing" | "ready" | "error";
+  message?: string;
+}
+
 export function RequestInbox({
   requests,
   selectedRequestId,
@@ -31,6 +38,8 @@ export function RequestInbox({
   onSelect,
   batchAiState,
   onRunBatchAiReview,
+  localAiCacheState,
+  onClearLocalAiCache,
 }: RequestInboxProps) {
   return (
     <section className="surface request-inbox">
@@ -46,14 +55,39 @@ export function RequestInbox({
           type="button"
           className="button-secondary"
           onClick={onRunBatchAiReview}
-          disabled={requests.length === 0 || batchAiState.status === "loading"}
+          disabled={
+            requests.length === 0 ||
+            batchAiState.status === "loading" ||
+            localAiCacheState.status === "clearing"
+          }
         >
           {batchAiState.status === "loading"
             ? "Reviewing open requests..."
             : "Review all open requests with local AI"}
         </button>
+        <button
+          type="button"
+          className="button-tertiary"
+          onClick={onClearLocalAiCache}
+          disabled={localAiCacheState.status === "clearing"}
+        >
+          {localAiCacheState.status === "clearing"
+            ? "Deleting local AI files..."
+            : "Delete local AI model files"}
+        </button>
         {batchAiState.progress ? <span>{batchAiState.progress}</span> : null}
       </div>
+      {localAiCacheState.message ? (
+        <p
+          className={
+            localAiCacheState.status === "error"
+              ? "browser-ai-error"
+              : "browser-ai-cache-status"
+          }
+        >
+          {localAiCacheState.message}
+        </p>
+      ) : null}
       {batchAiState.error ? (
         <p className="browser-ai-error">{batchAiState.error}</p>
       ) : null}

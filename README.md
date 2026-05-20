@@ -8,7 +8,7 @@ requests can be forwarded to imToken for final signing.
 Live WalletConnect review defaults to Ethereum mainnet, with Base, Sepolia, and
 Base Sepolia available from the network selector. Examples work on a hosted
 build without environment variables. Users can choose imToken Web, a Local Token
-Core Vault, or a WalletConnect fallback as the signer source. Token Core Lab
+Core Vault, or a WalletConnect wallet as the signer source. Token Core Lab
 stays testnet-first, while the Local Token Core Vault can sign DApp requests
 only after IntentProof review and vault unlock. Mainnet local vault signing is
 disabled by default and requires explicit session opt-in.
@@ -93,15 +93,17 @@ same screen.
 ## Product Surface
 
 - Protect Wallet: the primary product screen. Choose imToken Web, Local Token
-  Core Vault, or WalletConnect fallback; connect a DApp; review live requests;
+  Core Vault, or WalletConnect wallet; connect a DApp; review live requests;
   then forward, sign locally, or reject.
 - Examples: secondary deterministic incoming requests for hosted review:
   safe ERC-20 transfer PASS, unlimited approval BLOCK, WETH wrap PASS/WARN, swap
   route policy WARN/BLOCK, and bridge/chain mismatch BLOCK.
 - Local Token Core Vault: first-class product signer using `@consenlabs/tcx-wasm`
   for fresh wallet creation, encrypted keystore storage in IndexedDB, account
-  derivation, unlock, and reviewed transaction signing. It stores no plaintext
-  mnemonic, private key, passkey secret, or vault password.
+  derivation, unlock, reviewed transaction signing, `personal_sign`, and
+  EIP-712 typed-data signing through viem hashing plus Token Core `EcSign`.
+  It stores no plaintext mnemonic, private key, passkey secret, or vault
+  password.
 - Token Core Lab: secondary fresh local Token Core testnet wallet creation, Token Core
   signing, and optional explicit Sepolia/Base Sepolia broadcast. No browser
   wallet-file import/export exists.
@@ -131,7 +133,10 @@ with local AI`, with model options kept under 1 GB: SmolLM2 360M, TinyLlama
 1.1B 1k, and Qwen2.5 0.5B. The local model receives only IntentProof's
 normalized review packet: decoded function, chain, policy reasons, warnings,
 blockers, and simulation summary. It does not receive wallet secrets, and it is
-not allowed to make requests forwardable.
+not allowed to make requests forwardable. Users can delete the downloaded local
+AI model files from the Request Inbox. That clears WebLLM model cache entries
+only; it does not touch local vaults, receipts, WalletConnect sessions, or app
+settings.
 
 ## Token Core Usage
 
@@ -140,13 +145,15 @@ IntentProof is derived from the official Token Core CLI demo branch at
 
 - `@consenlabs/tcx-wasm`
 - Local Token Core Vault creation, encrypted keystore storage, account
-  derivation, and reviewed local signing
+  derivation, reviewed local transaction signing, `personal_sign`, and
+  EIP-712 typed-data signing through Token Core message signing
 - local Token Core testnet wallet creation and signing in Token Core Lab
 - shared CLI/UI testnet wallet storage
 - transaction templates for ETH, ERC-20 transfer, ERC-20 approve, WETH, and
   custom calldata
 - analyze/decode/policy checks
 - Sepolia and Base Sepolia signing/broadcast support
+- EVM transaction signing with either EIP-1559 fee fields or legacy `gasPrice`
 - preserved CLI scripts and tests
 
 imToken Web signing uses `@consenlabs/imtoken-connect` as the primary external
@@ -158,7 +165,7 @@ set.
 
 - Ethereum mainnet is the default live WalletConnect network; Examples and
   Token Core Lab remain testnet-first.
-- Mainnet forwarding through imToken Web or a WalletConnect fallback shows a warning.
+- Mainnet forwarding through imToken Web or a WalletConnect wallet shows a warning.
 - Local Token Core Vault mainnet signing is disabled by default and requires
   explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
   request.
@@ -193,7 +200,8 @@ or decoded-analysis summaries to a provider.
 
 WebLLM local AI review does not require an API key. The first run downloads the
 selected open model into the browser cache, so it may take time and requires a
-browser with WebGPU support.
+browser with WebGPU support. Use `Delete local AI model files` in the Request
+Inbox to remove downloaded WebLLM model files from this browser.
 
 `VITE_ALCHEMY_API_KEY` and `VITE_TENDERLY_NODE_ACCESS_KEY` are also public
 browser values. Use disposable, origin-restricted keys for hosted deployments.

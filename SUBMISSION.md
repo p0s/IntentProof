@@ -57,16 +57,16 @@ Demo video: upload a 60-90 second video under 20 MB using `DEMO_SCRIPT.md`.
 Built from the official Token Core CLI demo branch at
 `token-core/tcx-examples/cli`. IntentProof uses `@consenlabs/tcx-wasm` for the
 Local Token Core Vault, encrypted keystore-based wallet creation, account
-derivation, local signing, Token Core Lab testnet signing, transaction
-templates, analyze/decode, policy pre-checks, sign/broadcast flows,
-Sepolia/Base Sepolia configuration, and preserved CLI scripts. A lightweight
-Token UI-inspired component layer and Security Skill guidance are documented in
-provenance files.
+derivation, local transaction signing, message signing, typed-data digest
+signing, Token Core Lab testnet signing, transaction templates,
+analyze/decode, policy pre-checks, sign/broadcast flows, Sepolia/Base Sepolia
+configuration, and preserved CLI scripts. A lightweight Token UI-inspired
+component layer and Security Skill guidance are documented in provenance files.
 
 ## Live WalletConnect Mode
 
 Protect Wallet is the primary product surface. Users choose imToken Web, Local
-Token Core Vault, or WalletConnect fallback as the signer source. IntentProof
+Token Core Vault, or WalletConnect wallet as the signer source. IntentProof
 accepts routed DApp WalletConnect requests, normalizes incoming JSON-RPC
 requests, runs policy/Token Core evidence checks, and either explains why the
 request cannot continue or forwards/signs with the selected signer.
@@ -97,7 +97,7 @@ work.
 
 Ethereum Mainnet and Base Mainnet are supported in Protect Wallet review.
 Ethereum is the default live network, and mainnet requests show a clear warning.
-imToken Web and WalletConnect fallback keep custody in the external signer.
+imToken Web and WalletConnect wallet keep custody in the external signer.
 Local Token Core Vault mainnet signing is disabled by default and requires
 explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
 request. Undecoded calldata and Universal Router command streams are shown as
@@ -116,7 +116,7 @@ review packet instead of raw calldata, and never changes forwarding authority.
 1. Open the hosted link.
 2. Show Protect Wallet as the first screen.
 3. Show the signer selector: imToken Web, Local Token Core Vault, and
-   WalletConnect fallback.
+   WalletConnect wallet.
 4. Select a routine request and forward it to imToken in the configured/fake demo
    flow.
 5. Select the mainnet unlimited approval request and show the approval details,

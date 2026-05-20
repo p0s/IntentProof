@@ -27,6 +27,10 @@ function normalizeTx(value: unknown): LiveTransactionRequest | undefined {
     data: asHex(value.data),
     value: asHex(value.value),
     gas: asHex(value.gas),
+    gasPrice: asHex(value.gasPrice),
+    maxFeePerGas: asHex(value.maxFeePerGas),
+    maxPriorityFeePerGas: asHex(value.maxPriorityFeePerGas),
+    nonce: asHex(value.nonce),
     chainId: asHex(value.chainId),
   };
 }
@@ -74,6 +78,33 @@ function getUnsupportedMethodReason(method: string) {
   return undefined;
 }
 
+function extractSignatureAddress(method: string, params: unknown): Address | undefined {
+  if (
+    method !== "personal_sign" &&
+    method !== "eth_sign" &&
+    method !== "eth_signTypedData_v4"
+  ) {
+    return undefined;
+  }
+  if (!Array.isArray(params)) return undefined;
+  return params.map(asAddress).find(Boolean);
+}
+
+function extractPersonalSignMessage(params: unknown) {
+  if (!Array.isArray(params)) return undefined;
+  const [first, second] = params;
+  if (asAddress(first) && typeof second === "string") return second;
+  return typeof first === "string" ? first : undefined;
+}
+
+function extractTypedData(params: unknown) {
+  if (!Array.isArray(params)) return undefined;
+  const [first, second] = params;
+  if (asAddress(first)) return second;
+  if (asAddress(second)) return first;
+  return second ?? first;
+}
+
 export function normalizeLiveRequest(params: {
   id: string;
   topic?: string;
@@ -119,16 +150,16 @@ export function normalizeLiveRequest(params: {
       method: params.method,
       params: rawParams,
     },
+    signatureAddress: extractSignatureAddress(params.method, rawParams),
     message:
       (params.method === "personal_sign" || params.method === "eth_sign") &&
-      Array.isArray(rawParams) &&
-      typeof rawParams[0] === "string"
-        ? rawParams[0]
+      Array.isArray(rawParams)
+        ? extractPersonalSignMessage(rawParams)
         : undefined,
     typedData:
       params.method === "eth_signTypedData_v4" &&
       Array.isArray(rawParams)
-        ? rawParams[1]
+        ? extractTypedData(rawParams)
         : undefined,
   };
 }

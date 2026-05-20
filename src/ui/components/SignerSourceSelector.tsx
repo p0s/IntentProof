@@ -1,9 +1,9 @@
 import type { DemoChainKey } from "../../lib/types";
 import {
-  SIGNER_SOURCE_OPTIONS,
   type ConnectedSigner,
   type SignerSource,
 } from "../../lib/signer/types";
+import type { LiveConnectorState } from "../../lib/live/types";
 import type {
   LocalTokenCoreVaultRecord,
   VaultUnlockMode,
@@ -12,12 +12,11 @@ import { TokenAlert } from "../token-ui/Alert";
 import { TokenBadge } from "../token-ui/Badge";
 import { TokenButton } from "../token-ui/Button";
 import { TokenCard } from "../token-ui/Card";
-import { TokenTabs } from "../token-ui/Tabs";
 
 interface SignerSourceSelectorProps {
   source: SignerSource;
   connectedSigner: ConnectedSigner;
-  projectIdPresent: boolean;
+  externalSignerState: LiveConnectorState;
   vaultRecord?: LocalTokenCoreVaultRecord;
   vaultStatus: string;
   vaultName: string;
@@ -26,7 +25,6 @@ interface SignerSourceSelectorProps {
   vaultMainnetEnabled: boolean;
   vaultMainnetAcknowledged: boolean;
   selectedChainKey: DemoChainKey;
-  onSourceChange: (source: SignerSource) => void;
   onVaultNameChange: (name: string) => void;
   onVaultPasswordChange: (password: string) => void;
   onVaultUnlockModeChange: (mode: VaultUnlockMode) => void;
@@ -36,18 +34,13 @@ interface SignerSourceSelectorProps {
   onDeleteVault: () => void;
   onVaultMainnetEnabledChange: (enabled: boolean) => void;
   onVaultMainnetAcknowledgedChange: (acknowledged: boolean) => void;
-}
-
-function signerStatusBadge(signer: ConnectedSigner) {
-  if (signer.isUnlocked) return <TokenBadge tone="success">Ready</TokenBadge>;
-  if (signer.address) return <TokenBadge tone="warning">Locked</TokenBadge>;
-  return <TokenBadge tone="neutral">Not connected</TokenBadge>;
+  onCancelExternalConnection: () => void;
 }
 
 export function SignerSourceSelector({
   source,
   connectedSigner,
-  projectIdPresent,
+  externalSignerState,
   vaultRecord,
   vaultStatus,
   vaultName,
@@ -56,7 +49,6 @@ export function SignerSourceSelector({
   vaultMainnetEnabled,
   vaultMainnetAcknowledged,
   selectedChainKey,
-  onSourceChange,
   onVaultNameChange,
   onVaultPasswordChange,
   onVaultUnlockModeChange,
@@ -66,57 +58,45 @@ export function SignerSourceSelector({
   onDeleteVault,
   onVaultMainnetEnabledChange,
   onVaultMainnetAcknowledgedChange,
+  onCancelExternalConnection,
 }: SignerSourceSelectorProps) {
   const localVaultSelected = source === "local-token-core-vault";
+  const showExternalState =
+    source !== "local-token-core-vault" &&
+    externalSignerState.status !== "idle";
+  const externalStateTone =
+    externalSignerState.status === "connected"
+      ? "success"
+      : externalSignerState.status === "error" ||
+          externalSignerState.status === "setup-required"
+        ? "warning"
+        : "info";
+  if (!localVaultSelected && !showExternalState) {
+    return null;
+  }
   return (
-    <TokenCard className="signer-source-panel" aria-label="Choose signer">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">Signer source</span>
-          <h2>Choose signer</h2>
-        </div>
-        {signerStatusBadge(connectedSigner)}
-      </div>
-      <TokenTabs
-        aria-label="Signer source"
-        value={source}
-        options={SIGNER_SOURCE_OPTIONS.map((option) => ({
-          value: option.source,
-          label: option.title,
-          description: option.description,
-        }))}
-        onChange={onSourceChange}
-      />
-      <div className="signer-source-state">
-        <div>
-          <span>Active signer</span>
-          <strong>{connectedSigner.label}</strong>
-          {connectedSigner.address ? <code>{connectedSigner.address}</code> : null}
-        </div>
-        <div>
-          <span>Network scope</span>
-          <strong>{selectedChainKey}</strong>
-        </div>
-      </div>
-      {source === "imtoken-web" ? (
-        <TokenAlert tone="info" title="Connect imToken Web">
-          imToken Web handles its own login and passkey/account flow. IntentProof
-          reviews DApp requests before forwarding; it does not create imToken
-          accounts or store imToken passkeys.
-        </TokenAlert>
-      ) : null}
-      {source === "walletconnect-fallback" ? (
-        <TokenAlert tone={projectIdPresent ? "info" : "warning"} title="WalletConnect fallback">
-          {projectIdPresent
-            ? "Use this only when imToken Web is unavailable. Requests still pass through IntentProof gates first."
-            : "Fallback pairing needs the public VITE_WALLETCONNECT_PROJECT_ID. Other product areas still work."}
+    <TokenCard className="signer-source-panel compact-signer-panel" aria-label="Signer status">
+      {showExternalState ? (
+        <TokenAlert tone={externalStateTone} title={externalSignerState.label}>
+          {externalSignerState.detail}
+          {externalSignerState.status === "pairing" ? (
+            <div className="button-row compact-action-row">
+              <TokenButton
+                type="button"
+                tone="ghost"
+                onClick={onCancelExternalConnection}
+              >
+                Cancel connection
+              </TokenButton>
+            </div>
+          ) : null}
         </TokenAlert>
       ) : null}
       {localVaultSelected ? (
         <section className="local-vault-card" aria-label="Local Token Core Vault">
           <div className="local-vault-header">
             <div>
-              <span className="eyebrow">Local signer</span>
+              <span className="eyebrow">Selected signer</span>
               <h3>Local Token Core Vault</h3>
             </div>
             <TokenBadge tone={connectedSigner.isUnlocked ? "success" : "warning"}>
@@ -124,10 +104,21 @@ export function SignerSourceSelector({
             </TokenBadge>
           </div>
           <p>
-            Create a fresh encrypted Token Core vault in this browser. It stores
-            encrypted keystore data only and never stores the vault password,
-            plaintext private key, or mnemonic.
+            Create or unlock an encrypted Token Core vault in this browser. No
+            wallet file import/export is exposed here.
           </p>
+          <div className="signer-source-state compact-vault-state">
+            <div>
+              <span>Network scope</span>
+              <strong>{selectedChainKey}</strong>
+            </div>
+            {connectedSigner.address ? (
+              <div>
+                <span>Vault address</span>
+                <code>{connectedSigner.address}</code>
+              </div>
+            ) : null}
+          </div>
           <div className="vault-form-grid">
             <label>
               <span>Vault label</span>
@@ -161,15 +152,9 @@ export function SignerSourceSelector({
               </select>
             </label>
           </div>
-          {vaultRecord ? (
-            <div className="vault-address-panel">
-              <span>Vault address exposed to DApps</span>
-              <code>{vaultRecord.address}</code>
-            </div>
-          ) : null}
           <div className="button-row">
             <TokenButton tone="primary" type="button" onClick={onCreateVault}>
-              Create Local Token Core Vault
+              Create vault
             </TokenButton>
             <TokenButton type="button" onClick={onUnlockVault} disabled={!vaultRecord}>
               Unlock vault

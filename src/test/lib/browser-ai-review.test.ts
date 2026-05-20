@@ -1,15 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultFirewallSettings } from "../../lib/intentproof";
 import {
   BROWSER_AI_MODEL_OPTIONS,
   buildAiTransactionReviewPacket,
+  clearBrowserAiModelCache,
   parseAiTransactionReviewOutput,
 } from "../../lib/live/browserAiReview";
 import { buildFakeLiveRequests } from "../../lib/live/fakeLiveClients";
 import { evaluateLiveRequestPolicy } from "../../lib/live/livePolicyBridge";
 
+const webLlmMocks = vi.hoisted(() => ({
+  deleteModelAllInfoInCache: vi.fn(async () => undefined),
+}));
+
+vi.mock("@mlc-ai/web-llm", () => ({
+  deleteModelAllInfoInCache: webLlmMocks.deleteModelAllInfoInCache,
+}));
+
 describe("browser AI transaction review", () => {
+  beforeEach(() => {
+    webLlmMocks.deleteModelAllInfoInCache.mockClear();
+    webLlmMocks.deleteModelAllInfoInCache.mockImplementation(async () => undefined);
+  });
+
   it("builds a normalized live review packet without raw calldata", () => {
     const [request] = buildFakeLiveRequests();
     const decision = evaluateLiveRequestPolicy({
@@ -103,5 +117,41 @@ describe("browser AI transaction review", () => {
     expect(() => parseAiTransactionReviewOutput("Schema: not JSON")).toThrow(
       /valid review JSON/i,
     );
+  });
+
+  it("deletes local WebLLM model cache entries without touching app data", async () => {
+    const [firstModel, secondModel] = BROWSER_AI_MODEL_OPTIONS;
+
+    const result = await clearBrowserAiModelCache([
+      firstModel!.id,
+      firstModel!.id,
+      secondModel!.id,
+    ]);
+
+    expect(result.failedModelIds).toEqual([]);
+    expect(result.clearedModelIds).toEqual([firstModel!.id, secondModel!.id]);
+    expect(webLlmMocks.deleteModelAllInfoInCache).toHaveBeenCalledTimes(2);
+    expect(webLlmMocks.deleteModelAllInfoInCache).toHaveBeenNthCalledWith(
+      1,
+      firstModel!.id,
+    );
+    expect(webLlmMocks.deleteModelAllInfoInCache).toHaveBeenNthCalledWith(
+      2,
+      secondModel!.id,
+    );
+  });
+
+  it("reports browsers that refuse local model cache deletion", async () => {
+    const [firstModel] = BROWSER_AI_MODEL_OPTIONS;
+    webLlmMocks.deleteModelAllInfoInCache.mockRejectedValueOnce(
+      new Error("storage denied"),
+    );
+
+    const result = await clearBrowserAiModelCache([firstModel!.id]);
+
+    expect(result.clearedModelIds).toEqual([]);
+    expect(result.failedModelIds).toEqual([
+      { modelId: firstModel!.id, message: "storage denied" },
+    ]);
   });
 });

@@ -137,12 +137,45 @@
   padding: 3px 4px 3px 12px;
 }
 
+.signer-control {
+  display: grid;
+  grid-template-columns: auto minmax(112px, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 0 3px 10px;
+}
+
+.account-login-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  border: 1px solid rgba(22, 119, 255, 0.18);
+  border-radius: 999px;
+  background: var(--surface-bg);
+  padding: 3px;
+}
+
 .network-control span {
   color: var(--text-soft);
   text-transform: uppercase;
 }
 
-.network-control select {
+.signer-control span {
+  color: var(--text-soft);
+  text-transform: uppercase;
+}
+
+.network-control select,
+.signer-control select {
   min-height: 30px;
   border: 0;
   border-radius: 999px;
@@ -150,10 +183,11 @@
   color: var(--text-h);
   font-size: 13px;
   font-weight: 850;
-  padding: 4px 24px 4px 6px;
+  padding: 4px 18px 4px 4px;
 }
 
-.network-control select:focus {
+.network-control select:focus,
+.signer-control select:focus {
   box-shadow: none;
 }
 
@@ -179,7 +213,7 @@
   gap: 8px;
   min-height: 38px;
   border-radius: 999px;
-  border-color: rgba(22, 119, 255, 0.2);
+  border-color: transparent;
   background: var(--accent);
   color: #ffffff;
   font-size: 13px;
@@ -276,6 +310,10 @@
   padding: 18px;
 }
 
+.compact-signer-panel {
+  gap: 12px;
+}
+
 .signer-source-state {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -314,6 +352,17 @@
   border-radius: 16px;
   padding: 16px;
   background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+}
+
+.compact-signer-panel .local-vault-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.compact-vault-state {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .local-vault-header {
@@ -900,6 +949,13 @@
   font-weight: 650;
 }
 
+.browser-ai-cache-status {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .batch-ai-summary {
   display: grid;
   gap: 4px;
@@ -1126,6 +1182,10 @@
 
 .campaign-row {
   gap: 10px;
+}
+
+.compact-action-row {
+  margin-top: 10px;
 }
 
 .brand-lockup {
@@ -2442,6 +2502,7 @@ a:hover {
 .intentproof-shell[data-theme="dark"] .mode-badge,
 .intentproof-shell[data-theme="dark"] .app-topbar,
 .intentproof-shell[data-theme="dark"] .network-control,
+.intentproof-shell[data-theme="dark"] .account-login-control,
 .intentproof-shell[data-theme="dark"] .icon-theme-toggle,
 .intentproof-shell[data-theme="dark"] .wallet-connect-button:disabled,
 .intentproof-shell[data-theme="dark"] .live-status,
@@ -2690,11 +2751,12 @@ a:hover {
 
   .topbar-actions {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 38px minmax(120px, auto);
+    grid-template-columns: minmax(0, 1fr) 38px;
     justify-content: stretch;
   }
 
-  .network-control {
+  .network-control,
+  .signer-control {
     grid-template-columns: 1fr;
     gap: 0;
     align-items: stretch;
@@ -2702,10 +2764,20 @@ a:hover {
     padding: 8px 10px;
   }
 
-  .network-control select {
+  .network-control select,
+  .signer-control select {
     padding-left: 0;
   }
 
+  .account-login-control {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border-radius: 16px;
+    padding: 4px;
+  }
+
+  .signer-control,
   .wallet-connect-button {
     min-width: 0;
     padding-inline: 10px;

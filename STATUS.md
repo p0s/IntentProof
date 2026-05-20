@@ -1,6 +1,6 @@
 # STATUS.md - IntentProof backlog
 
-_Last updated: 2026-05-19_
+_Last updated: 2026-05-20_
 
 ## Current Decision Set
 
@@ -43,8 +43,8 @@ _Last updated: 2026-05-19_
 ## Product Surface
 
 - [x] Protect Wallet is the default first screen.
-- [x] Protect Wallet signer source selector: imToken Web, Local Token Core
-  Vault, WalletConnect fallback.
+- [x] Top-right signer selector: imToken Web, Local Token Core Vault,
+  WalletConnect wallet.
 - [x] Local Token Core Vault uses `@consenlabs/tcx-wasm`, encrypted keystore
   storage, account derivation, lock/unlock, delete, and reviewed signing gates.
 - [x] imToken Connect adapter added as the primary imToken Web signer path.
@@ -111,6 +111,9 @@ _Last updated: 2026-05-19_
 - [x] Batch local AI review can review all open non-routine requests from
   sanitized normalized packets. AI remains advisory and cannot change
   forwarding gates.
+- [x] Request Inbox can delete downloaded WebLLM local model cache entries
+  without touching local vaults, receipts, WalletConnect sessions, or app
+  settings.
 - [x] Added a repeatable `npm run test:e2e:dapps` harness for Tokenlon, 1inch,
   Curve, Lido, ENS, Sushi, Compound, and Aave request classes. This tests the
   real Protect Wallet inbox, scoring, reject, warning acknowledgement,
@@ -127,6 +130,13 @@ _Last updated: 2026-05-19_
 - [x] Local Token Core Vault product signer path.
 - [x] Encrypted local vault storage in IndexedDB when available.
 - [x] Local vault mainnet signing opt-in guard.
+- [x] Local vault supports reviewed `personal_sign` via Token Core
+  `sign_message` PersonalSign.
+- [x] Local vault supports reviewed EIP-712 `eth_signTypedData_v4` by hashing
+  the typed-data packet with viem and signing the digest with Token Core
+  `sign_message` EcSign.
+- [x] Local vault and CLI transaction signing support both EIP-1559 fee fields
+  and legacy `gasPrice`.
 - [x] Local fresh testnet wallet creation.
 - [x] Local Token Core testnet signing.
 - [x] Optional explicit testnet broadcast.
@@ -150,6 +160,10 @@ _Last updated: 2026-05-19_
 
 ## Remaining Risks
 
+- imToken Web `/wallet` currently appears to stay on `Processing more requests`
+  even when IntentProof opens it through the SDK popup. Treat imToken Web as an
+  optional signer path and retest later; WalletConnect wallet and Local Token
+  Core Vault remain available signer paths.
 - Real WalletConnect interoperability should be tested against an actual imToken
   mobile session again after the `wallet_getCapabilities` hosted fix deploys.
   The previous live Uniswap attempt reached `Confirm in wallet` but no inbox
@@ -163,10 +177,10 @@ _Last updated: 2026-05-19_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 37 files, 235 tests.
+- `npm run test:unit` PASS - 37 files, 243 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 4 files, 34 tests.
+- `npm run test:ui` PASS - 4 files, 35 tests.
 - `npm run build:ui` PASS - WebLLM chunk-size warning only.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.

@@ -31,6 +31,10 @@ vi.mock("../../lib/tokencore", () => ({
     rawTransaction: "0xsigned",
     txHash: "0xhash",
   }),
+  signTokenCoreMessage: vi.fn().mockResolvedValue({
+    signature: "0xsignature",
+    signatureType: "PersonalSign",
+  }),
   broadcastSignedTransaction: vi.fn(),
 }));
 
@@ -67,6 +71,7 @@ vi.mock("@zxing/browser", () => ({
 }));
 
 vi.mock("@mlc-ai/web-llm", () => ({
+  deleteModelAllInfoInCache: vi.fn(async () => undefined),
   CreateMLCEngine: vi.fn(async () => ({
     chat: {
       completions: {
@@ -149,8 +154,8 @@ describe("App smoke test", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect imToken Web" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Local Token Core Vault/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /WalletConnect fallback/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Signer source" })).toHaveValue("imtoken-web");
+    expect(screen.queryByRole("heading", { name: "Choose signer" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Network/i })).toHaveValue("ethereum");
     expect(screen.getByRole("button", { name: /Auto theme/i })).toBeInTheDocument();
     expect(screen.queryByText(/Testnet by default/i)).not.toBeInTheDocument();
@@ -254,19 +259,22 @@ describe("App smoke test", () => {
     const user = userEvent.setup();
     render(<App liveClients={{ projectId: "test-project" }} />);
 
-    await user.click(screen.getByRole("tab", { name: /Local Token Core Vault/i }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Signer source" }),
+      "local-token-core-vault",
+    );
     await waitFor(() => expect(screen.getByLabelText("Network")).toHaveValue("sepolia"));
     expect(screen.getByRole("region", { name: "Local Token Core Vault" })).toBeInTheDocument();
     expect(screen.queryByText(/IntentProof creates imToken accounts/i)).not.toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Vault password"));
     await user.type(screen.getByLabelText("Vault password"), "test-pass");
-    await user.click(screen.getByRole("button", { name: "Create Local Token Core Vault" }));
+    await user.click(screen.getByRole("button", { name: "Create vault" }));
 
     await waitFor(() =>
       expect(screen.getByText(/Local Token Core Vault created/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText("Vault address exposed to DApps")).toBeInTheDocument();
+    expect(screen.getByText("Vault address")).toBeInTheDocument();
     expect(
       screen.getAllByText("0x8888888888888888888888888888888888888888").length,
     ).toBeGreaterThan(0);
@@ -660,6 +668,28 @@ describe("App smoke test", () => {
       screen.getByText(/Local AI reviewed 3 normalized IntentProof packets/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+  });
+
+  it("lets users delete downloaded local AI model files", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          projectId: "test-project",
+          initialRequests: buildFakeLiveRequests(),
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete local AI model files" }));
+
+    expect(
+      await screen.findByText(/Deleted 3 local AI model cache entries/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Vaults, receipts, and WalletConnect sessions were not changed/i),
+    ).toBeInTheDocument();
   });
 
   it("labels and warning-gates decoded Uniswap Universal Router writes", () => {

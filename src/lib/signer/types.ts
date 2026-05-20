@@ -40,10 +40,10 @@ export const SIGNER_SOURCE_OPTIONS: readonly SignerSourceOption[] = [
   },
   {
     source: "walletconnect-fallback",
-    title: "WalletConnect fallback",
-    shortLabel: "WC fallback",
+    title: "WalletConnect wallet",
+    shortLabel: "WalletConnect",
     description:
-      "Use another WalletConnect-compatible wallet when imToken Web is unavailable.",
+      "Connect imToken mobile or any WalletConnect-compatible final signer.",
   },
 ] as const;
 

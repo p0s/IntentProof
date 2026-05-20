@@ -65,6 +65,9 @@ export interface TxRequestDraft {
   data?: Hex;
   value?: bigint;
   gas?: bigint;
+  gasPrice?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
   nonce?: number;
   account?: Address;
 }

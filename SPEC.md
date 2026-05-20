@@ -744,6 +744,12 @@ Never show raw hex as the main explanation. Raw calldata may appear in an expand
 - Sign only after Token Core analysis has run.
 - Sign only when decision is PASS/INFO, or WARN after acknowledgement.
 - BLOCK and DANGER disable signing in the default demo.
+- Local Token Core Vault may sign reviewed `eth_sendTransaction`,
+  `personal_sign`, and `eth_signTypedData_v4` requests. Typed-data signing uses
+  a deterministic EIP-712 hash and Token Core `EcSign`; unsafe raw signing
+  methods remain unsupported.
+- Transaction signing must preserve both EIP-1559 fee fields and legacy
+  `gasPrice` requests.
 - Broadcast is a separate button after signing.
 - Broadcast is testnet-only.
 - Mainnet chain metadata may be used for decode/analyze/policy readiness. Local Token Core Vault mainnet signing is disabled by default and only available after explicit session opt-in; Token Core Lab remains testnet-only.

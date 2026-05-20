@@ -77,6 +77,14 @@ export interface BrowserAiProgress {
   progress?: number;
 }
 
+export interface BrowserAiCacheClearResult {
+  clearedModelIds: string[];
+  failedModelIds: Array<{
+    modelId: string;
+    message: string;
+  }>;
+}
+
 export const BROWSER_AI_MODEL_OPTIONS: BrowserAiModelOption[] = [
   {
     id: "SmolLM2-360M-Instruct-q4f16_1-MLC",
@@ -109,6 +117,7 @@ const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
 const UNIVERSAL_ROUTER_EXECUTE_SELECTORS = new Set(["0x24856bc3", "0x3593564c"]);
 
 type WebLlmEngine = {
+  unload?: () => Promise<void>;
   chat: {
     completions: {
       create: (params: unknown) => Promise<{
@@ -473,6 +482,43 @@ export async function runBrowserAiTransactionReview(params: {
   const content = response.choices?.[0]?.message?.content;
   if (!content) throw new Error("Local AI did not return a review.");
   return parseAiTransactionReviewOutput(content);
+}
+
+export async function clearBrowserAiModelCache(
+  modelIds = BROWSER_AI_MODEL_OPTIONS.map((model) => model.id),
+): Promise<BrowserAiCacheClearResult> {
+  const uniqueModelIds = Array.from(new Set(modelIds.filter(Boolean)));
+
+  if (engineCache && uniqueModelIds.includes(engineCache.modelId)) {
+    try {
+      await engineCache.engine.unload?.();
+    } finally {
+      engineCache = undefined;
+    }
+  }
+
+  const { deleteModelAllInfoInCache } = await import("@mlc-ai/web-llm");
+  const result: BrowserAiCacheClearResult = {
+    clearedModelIds: [],
+    failedModelIds: [],
+  };
+
+  for (const modelId of uniqueModelIds) {
+    try {
+      await deleteModelAllInfoInCache(modelId);
+      result.clearedModelIds.push(modelId);
+    } catch (error) {
+      result.failedModelIds.push({
+        modelId,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Browser did not allow deleting this local model cache.",
+      });
+    }
+  }
+
+  return result;
 }
 
 export function buildBatchAiReview(params: {

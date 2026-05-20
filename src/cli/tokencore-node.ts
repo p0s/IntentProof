@@ -46,6 +46,7 @@ interface SignResult {
   txHash: `0x${string}`;
   preparedRequest: Required<Pick<TxRequestDraft, "chainId" | "gas" | "nonce">> &
     TxRequestDraft & {
+      gasPrice?: bigint;
       maxFeePerGas?: bigint;
       maxPriorityFeePerGas?: bigint;
     };
@@ -276,30 +277,77 @@ async function prepareTransactionForSigning(
 ) {
   const nonce =
     draft.nonce ?? (await client.getTransactionCount({ address: account }));
-  const [estimatedGas, fees] = await Promise.all([
+  const estimatedGas =
     draft.gas ??
-      client
-        .estimateGas({
-          account,
-          to: draft.to,
-          data: draft.data,
-          value: draft.value,
-        })
-        .catch(() => 250000n),
-    client.estimateFeesPerGas(),
-  ]);
+    (await client
+      .estimateGas({
+        account,
+        to: draft.to,
+        data: draft.data,
+        value: draft.value,
+      })
+      .catch(() => 250000n));
+
+  if (draft.gasPrice !== undefined) {
+    return {
+      ...draft,
+      chainId: draft.chainId,
+      nonce,
+      gas: estimatedGas,
+      gasPrice: draft.gasPrice,
+      maxFeePerGas: undefined,
+      maxPriorityFeePerGas: undefined,
+    };
+  }
+
+  const fees =
+    draft.maxFeePerGas !== undefined && draft.maxPriorityFeePerGas !== undefined
+      ? undefined
+      : await client.estimateFeesPerGas();
 
   return {
     ...draft,
     chainId: draft.chainId,
     nonce,
     gas: estimatedGas,
-    maxFeePerGas: fees.maxFeePerGas
-      ? (fees.maxFeePerGas * GAS_FEE_MULTIPLIER_BPS) / BPS_BASE
+    maxFeePerGas: draft.maxFeePerGas !== undefined
+      ? draft.maxFeePerGas
+      : fees?.maxFeePerGas
+        ? (fees.maxFeePerGas * GAS_FEE_MULTIPLIER_BPS) / BPS_BASE
       : undefined,
-    maxPriorityFeePerGas: fees.maxPriorityFeePerGas
-      ? (fees.maxPriorityFeePerGas * GAS_FEE_MULTIPLIER_BPS) / BPS_BASE
+    maxPriorityFeePerGas: draft.maxPriorityFeePerGas !== undefined
+      ? draft.maxPriorityFeePerGas
+      : fees?.maxPriorityFeePerGas
+        ? (fees.maxPriorityFeePerGas * GAS_FEE_MULTIPLIER_BPS) / BPS_BASE
       : undefined,
+  };
+}
+
+function buildTokenCoreSignTxInput(
+  preparedRequest: Awaited<ReturnType<typeof prepareTransactionForSigning>>,
+) {
+  const commonInput = {
+    nonce: String(preparedRequest.nonce),
+    gasLimit: String(preparedRequest.gas),
+    to: preparedRequest.to,
+    value: String(preparedRequest.value ?? 0n),
+    data: preparedRequest.data ?? "0x",
+    chainId: String(preparedRequest.chainId),
+  };
+
+  if (preparedRequest.gasPrice !== undefined) {
+    return {
+      ...commonInput,
+      gasPrice: String(preparedRequest.gasPrice),
+    };
+  }
+
+  return {
+    ...commonInput,
+    txType: "02",
+    maxFeePerGas: String(preparedRequest.maxFeePerGas ?? 0n),
+    maxPriorityFeePerGas: String(preparedRequest.maxPriorityFeePerGas ?? 0n),
+    accessList: [],
   };
 }
 
@@ -335,20 +383,7 @@ export async function signDraftTransactionNode(
             prfKey,
             chain: "ETHEREUM",
             derivationPath: wallet.derivationPath,
-            input: {
-              nonce: String(preparedRequest.nonce),
-              gasLimit: String(preparedRequest.gas),
-              to: preparedRequest.to,
-              value: String(preparedRequest.value ?? 0n),
-              data: preparedRequest.data ?? "0x",
-              chainId: String(preparedRequest.chainId),
-              txType: "02",
-              maxFeePerGas: String(preparedRequest.maxFeePerGas ?? 0n),
-              maxPriorityFeePerGas: String(
-                preparedRequest.maxPriorityFeePerGas ?? 0n,
-              ),
-              accessList: [],
-            },
+            input: buildTokenCoreSignTxInput(preparedRequest),
           }),
         ),
       ) as { signature: `0x${string}`; txHash: `0x${string}` },

@@ -45,6 +45,7 @@ import {
   DEFAULT_BROWSER_AI_MODEL_ID,
   buildBatchAiReview,
   buildAiTransactionReviewPacket,
+  clearBrowserAiModelCache,
   runBrowserAiTransactionReview,
 } from "../lib/live/browserAiReview";
 import {
@@ -95,6 +96,7 @@ import type {
   VaultUnlockMode,
 } from "../lib/localVault/types";
 import {
+  SIGNER_SOURCE_OPTIONS,
   signerSourceLabel,
   type ConnectedSigner,
   type SignerSource,
@@ -110,7 +112,10 @@ import {
 } from "./components/LiveRequestCard";
 import { RequestInbox } from "./components/RequestInbox";
 import { SignerSourceSelector } from "./components/SignerSourceSelector";
-import type { BatchAiReviewState } from "./components/RequestInbox";
+import type {
+  BatchAiReviewState,
+  LocalAiCacheState,
+} from "./components/RequestInbox";
 import { useWalletManager } from "./hooks/useWalletManager";
 import { ActivityScreen } from "./screens/ActivityScreen";
 import { PreviewRequestsScreen } from "./screens/PreviewRequestsScreen";
@@ -241,12 +246,12 @@ function defaultSignerState(source: SignerSource, walletConnectConfigured: boole
       status: "setup-required",
       label: "WalletConnect setup required",
       detail:
-        "Set VITE_WALLETCONNECT_PROJECT_ID to use the WalletConnect fallback signer.",
+        "Set VITE_WALLETCONNECT_PROJECT_ID to use the WalletConnect wallet signer.",
     };
   }
   return {
     status: "idle",
-    label: "Ready to connect WalletConnect fallback",
+    label: "Ready to connect WalletConnect wallet",
     detail: "Connect another WalletConnect-compatible final signer.",
   };
 }
@@ -631,6 +636,9 @@ function App({ liveClients }: AppProps = {}) {
   const [batchAiReviewState, setBatchAiReviewState] = useState<BatchAiReviewState>({
     status: "idle",
   });
+  const [localAiCacheState, setLocalAiCacheState] = useState<LocalAiCacheState>({
+    status: "idle",
+  });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const liveSignerRef = useRef<LiveSignerClient | undefined>(liveClients?.signer);
   const liveSignerSourceRef = useRef<SignerSource | undefined>(
@@ -797,7 +805,7 @@ function App({ liveClients }: AppProps = {}) {
         ? "Local Vault"
         : signerSource === "imtoken-web"
           ? "Connect imToken Web"
-          : "Connect wallet";
+          : "Connect WalletConnect";
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
@@ -1392,7 +1400,7 @@ function App({ liveClients }: AppProps = {}) {
           : "Pairing WalletConnect signer",
       detail:
         signerSource === "imtoken-web"
-          ? "Complete the imToken Web account request."
+          ? "An imToken Web popup should open. Sign in or create an account there, then keep the popup open until it returns here. If it stays on Processing more requests, cancel and use WalletConnect wallet."
           : "Approve the WalletConnect pairing in the final signer.",
     });
     try {
@@ -1410,6 +1418,21 @@ function App({ liveClients }: AppProps = {}) {
             : "External signer connection failed.",
       });
     }
+  }
+
+  async function handleCancelExternalSignerConnection() {
+    try {
+      await liveSignerRef.current?.disconnect?.();
+    } catch {
+      // The UI still needs to recover if an external popup refuses to close.
+    }
+    liveSignerRef.current = undefined;
+    liveSignerSourceRef.current = undefined;
+    imTokenRestoreStarted.current = false;
+    setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
+    setLiveActionStatus(
+      `${signerSourceLabel(signerSource)} connection cancelled. Retry or switch signer source.`,
+    );
   }
 
   async function handleResetLiveSessions() {
@@ -1686,7 +1709,11 @@ function App({ liveClients }: AppProps = {}) {
           broadcast: true,
         });
         const dappResult =
-          result.kind === "broadcast" ? result.broadcastHash : result.txHash;
+          result.kind === "broadcast"
+            ? result.broadcastHash
+            : result.kind === "signature"
+              ? result.signature
+              : result.txHash;
         await liveInboundRef.current?.approveRequest(selectedLiveRequest, dappResult);
         setLiveActivity((previous) => [
           {
@@ -1871,6 +1898,52 @@ function App({ liveClients }: AppProps = {}) {
     }
   }
 
+  async function handleClearLocalAiCache() {
+    setLocalAiCacheState({
+      status: "clearing",
+      message: "Deleting local WebLLM model files from this browser.",
+    });
+    try {
+      const result = await clearBrowserAiModelCache();
+      setBrowserAiReviews({});
+      setBatchAiReviewState({ status: "idle" });
+
+      if (result.failedModelIds.length === 0) {
+        setLocalAiCacheState({
+          status: "ready",
+          message: `Deleted ${result.clearedModelIds.length} local AI model cache entr${
+            result.clearedModelIds.length === 1 ? "y" : "ies"
+          }. Vaults, receipts, and WalletConnect sessions were not changed.`,
+        });
+        return;
+      }
+
+      if (result.clearedModelIds.length > 0) {
+        setLocalAiCacheState({
+          status: "ready",
+          message: `Deleted ${result.clearedModelIds.length} local AI model cache entr${
+            result.clearedModelIds.length === 1 ? "y" : "ies"
+          }; ${result.failedModelIds.length} could not be removed by this browser.`,
+        });
+        return;
+      }
+
+      setLocalAiCacheState({
+        status: "error",
+        message:
+          "This browser did not allow IntentProof to delete the local AI model cache. Use browser site storage controls to remove it manually.",
+      });
+    } catch (error) {
+      setLocalAiCacheState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Local AI model cache deletion failed.",
+      });
+    }
+  }
+
   async function handleRejectLiveRequest() {
     if (!selectedLiveRequest || !liveDecision) return;
     let rejectWarning: string | undefined;
@@ -2044,36 +2117,53 @@ function App({ liveClients }: AppProps = {}) {
           >
             <span aria-hidden="true">{themeGlyph(themeMode, resolvedTheme)}</span>
           </button>
-          <button
-            type="button"
-            className="wallet-connect-button"
-            title={
-              signerSource === "local-token-core-vault"
-                ? localVaultStatus
-                : imTokenState.detail
-            }
-            onClick={() => {
-              if (connectedSigner.address) {
-                setAccountMenuOpen((open) => !open);
-              } else if (
-                signerSource !== "local-token-core-vault" &&
-                imTokenState.status !== "pairing"
-              ) {
-                void handleConnectImToken();
+          <div className="account-login-control">
+            <label className="signer-control">
+              <span>Signer</span>
+              <select
+                value={signerSource}
+                onChange={(event) =>
+                  void handleSignerSourceChange(event.target.value as SignerSource)
+                }
+                aria-label="Signer source"
+              >
+                {SIGNER_SOURCE_OPTIONS.map((option) => (
+                  <option key={option.source} value={option.source}>
+                    {option.shortLabel}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="wallet-connect-button"
+              title={
+                signerSource === "local-token-core-vault"
+                  ? localVaultStatus
+                  : imTokenState.detail
               }
-            }}
-            aria-expanded={connectedSigner.address ? accountMenuOpen : undefined}
-            disabled={imTokenState.status === "pairing"}
-          >
-            <span aria-hidden="true" className="wallet-dot" />
-            {signerButtonLabel}
-          </button>
-          {connectedSigner.address && accountMenuOpen ? (
-            <div className="wallet-account-menu" role="menu" aria-label="Connected account">
-              <div className="account-menu-address">
-                <span>Connected signer</span>
-                <code>{connectedSigner.address}</code>
-              </div>
+              onClick={() => {
+                if (connectedSigner.address) {
+                  setAccountMenuOpen((open) => !open);
+                } else if (
+                  signerSource !== "local-token-core-vault" &&
+                  imTokenState.status !== "pairing"
+                ) {
+                  void handleConnectImToken();
+                }
+              }}
+              aria-expanded={connectedSigner.address ? accountMenuOpen : undefined}
+              disabled={imTokenState.status === "pairing"}
+            >
+              <span aria-hidden="true" className="wallet-dot" />
+              {signerButtonLabel}
+            </button>
+            {connectedSigner.address && accountMenuOpen ? (
+              <div className="wallet-account-menu" role="menu" aria-label="Connected account">
+                <div className="account-menu-address">
+                  <span>Connected signer</span>
+                  <code>{connectedSigner.address}</code>
+                </div>
               <button
                 type="button"
                 role="menuitem"
@@ -2084,8 +2174,9 @@ function App({ liveClients }: AppProps = {}) {
                   ? "Lock local vault"
                   : "Disconnect signer"}
               </button>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       {activeProductTab !== "protect" ? (
@@ -2135,7 +2226,7 @@ function App({ liveClients }: AppProps = {}) {
             <SignerSourceSelector
               source={signerSource}
               connectedSigner={connectedSigner}
-              projectIdPresent={walletConnectConfigured}
+              externalSignerState={imTokenState}
               vaultRecord={localVaultRecord}
               vaultStatus={localVaultStatus}
               vaultName={localVaultName}
@@ -2144,7 +2235,6 @@ function App({ liveClients }: AppProps = {}) {
               vaultMainnetEnabled={localVaultMainnetEnabled}
               vaultMainnetAcknowledged={localVaultMainnetAcknowledged}
               selectedChainKey={selectedNetworkChainKey}
-              onSourceChange={(source) => void handleSignerSourceChange(source)}
               onVaultNameChange={setLocalVaultName}
               onVaultPasswordChange={setLocalVaultPassword}
               onVaultUnlockModeChange={setLocalVaultUnlockMode}
@@ -2154,6 +2244,9 @@ function App({ liveClients }: AppProps = {}) {
               onDeleteVault={() => void handleDeleteLocalVault()}
               onVaultMainnetEnabledChange={setLocalVaultMainnetEnabled}
               onVaultMainnetAcknowledgedChange={setLocalVaultMainnetAcknowledged}
+              onCancelExternalConnection={() =>
+                void handleCancelExternalSignerConnection()
+              }
             />
           }
           connectDapp={
@@ -2191,6 +2284,8 @@ function App({ liveClients }: AppProps = {}) {
               }
               batchAiState={batchAiReviewState}
               onRunBatchAiReview={() => void handleRunBatchBrowserAiReview()}
+              localAiCacheState={localAiCacheState}
+              onClearLocalAiCache={() => void handleClearLocalAiCache()}
             />
           }
           signingCard={
