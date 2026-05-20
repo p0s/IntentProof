@@ -19,17 +19,17 @@ Show Protect Wallet.
 Narration:
 
 ```text
-IntentProof Tx Guard protects imToken before signing. A DApp routes requests through IntentProof, Token Core verifies the actual request, and imToken remains the final signer.
+IntentProof Tx Guard protects wallet signing. A DApp routes requests through IntentProof, Token Core evidence explains the actual request, and the user chooses imToken Web, Local Token Core Vault, or another wallet as signer.
 ```
 
 ### 10-22s - Connect Flow
 
-Show the top-right imToken account control, Connect a DApp, single-choice QR/URI modes, and Request Inbox.
+Show the signer selector, top-right signer control, Connect a DApp, QR/URI intake, and Request Inbox.
 
 Narration:
 
 ```text
-The flow is simple: connect imToken from the account control, connect a DApp, then review the incoming request evidence before forwarding it to imToken.
+The flow is simple: choose a signer, connect a DApp, then review incoming request evidence before forwarding to imToken Web or signing with the Local Token Core Vault.
 ```
 
 ### 22-32s - Demo DApp Launch
@@ -49,7 +49,7 @@ Select the safe Sepolia transfer request.
 Narration:
 
 ```text
-This request is a readable ERC-20 transfer on Sepolia. IntentProof shows the decoded action, addresses, value, evidence confidence, risk, and execution status before forwarding the exact request to imToken for final signing.
+This request is a readable ERC-20 transfer on Sepolia. IntentProof shows the decoded action, addresses, value, evidence confidence, risk, and execution status before continuing with the selected signer.
 ```
 
 ### 43-55s - Mainnet Approval Review
@@ -59,7 +59,7 @@ Select the mainnet unlimited approval request.
 Narration:
 
 ```text
-Mainnet requests show a compact warning. This request asks for unlimited USDC approval, so IntentProof keeps evidence confidence separate from high-impact risk and requires explicit review before any relay to imToken.
+Mainnet requests show a compact warning. This request asks for unlimited USDC approval, so IntentProof keeps evidence confidence separate from high-impact risk and requires explicit review before any relay or local vault signing.
 ```
 
 ### 55-64s - Signature Review
@@ -84,12 +84,12 @@ Examples show five deterministic outcomes without API keys: safe transfer, unlim
 
 ### 76-86s - Token Core Lab
 
-Open Token Core Lab and show collapsed local Token Core controls.
+Show the Local Token Core Vault card, then open Token Core Lab and show collapsed local Token Core controls.
 
 Narration:
 
 ```text
-Local Token Core signing is testnet-only. Users create a fresh Sepolia or Base Sepolia wallet, enter its local password, and broadcast only if they explicitly choose to.
+The Local Token Core Vault is a real Token Core signer with encrypted local storage and session unlock. Token Core Lab remains the preserved testnet proof path for fresh Sepolia or Base Sepolia wallets and explicit broadcast.
 ```
 
 ### 86-90s - Activity And Boundaries

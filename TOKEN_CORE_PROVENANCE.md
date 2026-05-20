@@ -15,6 +15,10 @@ Original path: token-core/tcx-examples/cli
 
 - `@consenlabs/tcx-wasm`
 - local wallet creation, import, list, and selection in the CLI
+- Local Token Core Vault creation in the browser product
+- encrypted Token Core keystore storage for the Local Token Core Vault
+- account derivation for the DApp-exposed local vault address
+- reviewed local vault signing after IntentProof policy gates
 - fresh local testnet wallet creation in the browser UI
 - CLI-managed wallet file support for local development
 - transaction templates for ETH transfer, ERC-20 transfer, ERC-20 approval,
@@ -25,6 +29,7 @@ Original path: token-core/tcx-examples/cli
 - optional explicit testnet broadcast
 - Sepolia and Base Sepolia support for local signing/broadcast
 - Ethereum Mainnet and Base Mainnet metadata for analyze/decode/policy readiness
+- optional Local Token Core Vault mainnet signing only after explicit session opt-in
 - CLI commands and verification scripts
 
 ## Public Repo Cutover
@@ -41,5 +46,6 @@ artifacts.
 ## Design References
 
 Token UI and the Token UI security guidance were used as design and safety
-references only. IntentProof does not claim to be a native imToken mobile
+references. A small Token UI-inspired layer is vendored in
+`src/ui/token-ui/`; IntentProof does not claim to be a native imToken mobile
 feature or an official Token UI package.

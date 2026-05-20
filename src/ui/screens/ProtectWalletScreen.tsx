@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 interface ProtectWalletScreenProps {
+  signerPanel: ReactNode;
   connectDapp: ReactNode;
   requestInbox: ReactNode;
   signingCard: ReactNode;
@@ -9,6 +10,7 @@ interface ProtectWalletScreenProps {
 }
 
 export function ProtectWalletScreen({
+  signerPanel,
   connectDapp,
   requestInbox,
   signingCard,
@@ -25,6 +27,7 @@ export function ProtectWalletScreen({
         </p>
       </div>
       <div className="live-grid live-grid-single">
+        {signerPanel}
         {connectDapp}
       </div>
       <div className="live-review-grid">

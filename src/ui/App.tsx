@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildFallbackAiSummary, generateAiSummary } from "../lib/ai";
 import { buildAnalysisResult } from "../lib/analysis";
@@ -6,6 +6,7 @@ import {
   getChainConfig,
   getExplorerTxUrl,
   getMainnetChainConfigs,
+  isMainnetChainKey,
 } from "../lib/chains";
 import {
   NATIVE_TRANSFER_VERIFICATION,
@@ -38,6 +39,7 @@ import {
 } from "../lib/intentproof";
 import { InboundWalletConnectWallet } from "../lib/live/inboundWallet";
 import { buildWalletCapabilitiesResponse } from "../lib/live/capabilities";
+import { buildLiveAccount } from "../lib/live/chainConfig";
 import {
   BROWSER_AI_MODEL_OPTIONS,
   DEFAULT_BROWSER_AI_MODEL_ID,
@@ -50,6 +52,7 @@ import {
   pendingLiveRequestEvidence,
 } from "../lib/live/liveEvidence";
 import { ImTokenWalletConnectSigner } from "../lib/live/imtokenSigner";
+import { ImTokenConnectSigner } from "../lib/live/imtokenConnectSigner";
 import { evaluateLiveRequestPolicy } from "../lib/live/livePolicyBridge";
 import { isRoutineWalletCoordinationRequest } from "../lib/live/requestAssessment";
 import { removeLiveRequest, selectNextLiveRequest, upsertLiveRequest } from "../lib/live/liveRequestQueue";
@@ -72,15 +75,41 @@ import {
   broadcastSignedTransaction,
   signDraftTransaction,
 } from "../lib/tokencore";
+import {
+  clearLocalTokenCoreVaults,
+  loadLocalTokenCoreVaults,
+  saveLocalTokenCoreVault,
+} from "../lib/localVault/storage";
+import {
+  createLocalTokenCoreVault,
+  unlockLocalTokenCoreVault,
+} from "../lib/localVault/tokenCoreVault";
+import {
+  evaluateLocalVaultSigningGate,
+} from "../lib/localVault/mainnetGuard";
+import { signLiveRequestWithLocalVault } from "../lib/localVault/vaultSigner";
+import { detectPasskeyPrfSupport } from "../lib/localVault/passkey";
+import type {
+  LocalTokenCoreVaultRecord,
+  LocalTokenCoreVaultSession,
+  VaultUnlockMode,
+} from "../lib/localVault/types";
+import {
+  signerSourceLabel,
+  type ConnectedSigner,
+  type SignerSource,
+} from "../lib/signer/types";
 import type { AnalysisResult, DemoChainKey } from "../lib/types";
 import type { Address } from "viem";
 import "./App.css";
 import { DappConnectionCard } from "./components/DappConnectionCard";
+import { LocalVaultMainnetGuard } from "./components/LocalVaultMainnetGuard";
 import {
   LiveRequestCard,
   type BrowserAiReviewState,
 } from "./components/LiveRequestCard";
 import { RequestInbox } from "./components/RequestInbox";
+import { SignerSourceSelector } from "./components/SignerSourceSelector";
 import type { BatchAiReviewState } from "./components/RequestInbox";
 import { useWalletManager } from "./hooks/useWalletManager";
 import { ActivityScreen } from "./screens/ActivityScreen";
@@ -88,6 +117,7 @@ import { PreviewRequestsScreen } from "./screens/PreviewRequestsScreen";
 import { ProtectWalletScreen } from "./screens/ProtectWalletScreen";
 import { TestnetSigningScreen } from "./screens/TestnetSigningScreen";
 import { DemoDappScreen } from "./screens/DemoDappScreen";
+import "./token-ui/tokenUi.css";
 
 type PipelineState =
   | "idle"
@@ -195,6 +225,30 @@ function clearConnectRouteUri() {
   if (typeof window === "undefined") return;
   const cleanedUrl = removeWalletConnectUriFromLocation(window.location.href);
   window.history.replaceState(window.history.state, document.title, cleanedUrl);
+}
+
+function defaultSignerState(source: SignerSource, walletConnectConfigured: boolean): LiveConnectorState {
+  if (source === "imtoken-web") {
+    return {
+      status: "idle",
+      label: "Ready to connect imToken Web",
+      detail:
+        "Use imToken Web as the final signer. IntentProof reviews before forwarding.",
+    };
+  }
+  if (!walletConnectConfigured) {
+    return {
+      status: "setup-required",
+      label: "WalletConnect setup required",
+      detail:
+        "Set VITE_WALLETCONNECT_PROJECT_ID to use the WalletConnect fallback signer.",
+    };
+  }
+  return {
+    status: "idle",
+    label: "Ready to connect WalletConnect fallback",
+    detail: "Connect another WalletConnect-compatible final signer.",
+  };
 }
 
 function getAutoTheme(): Exclude<ThemeMode, "auto"> {
@@ -481,14 +535,26 @@ function App({ liveClients }: AppProps = {}) {
   const [dappUriSource, setDappUriSource] = useState<DappUriSource>(
     initialDappRoute.hasUri ? "route" : "manual",
   );
+  const [signerSource, setSignerSource] = useState<SignerSource>("imtoken-web");
+  const [localVaultRecord, setLocalVaultRecord] =
+    useState<LocalTokenCoreVaultRecord>();
+  const [localVaultSession, setLocalVaultSession] =
+    useState<LocalTokenCoreVaultSession>();
+  const [localVaultName, setLocalVaultName] = useState("IntentProof local vault");
+  const [localVaultPassword, setLocalVaultPassword] = useState("");
+  const [localVaultUnlockMode, setLocalVaultUnlockMode] =
+    useState<VaultUnlockMode>("password");
+  const [localVaultStatus, setLocalVaultStatus] = useState(
+    "No Local Token Core Vault yet.",
+  );
+  const [localVaultMainnetEnabled, setLocalVaultMainnetEnabled] = useState(false);
+  const [localVaultMainnetAcknowledged, setLocalVaultMainnetAcknowledged] =
+    useState(false);
   const [imTokenState, setImTokenState] = useState<LiveConnectorState>({
-    status: walletConnectConfigured ? "idle" : "setup-required",
-    label: walletConnectConfigured
-      ? "Ready to connect imToken"
-      : "WalletConnect setup required",
-    detail: walletConnectConfigured
-      ? "Connect imToken through WalletConnect for final signing."
-      : "Add VITE_WALLETCONNECT_PROJECT_ID to enable live imToken pairing.",
+    status: "idle",
+    label: "Ready to connect imToken Web",
+    detail:
+      "Use imToken Web as the final signer. IntentProof reviews before forwarding.",
   });
   const [dappState, setDappState] = useState<LiveConnectorState>({
     status: initialDappRoute.valid
@@ -567,11 +633,31 @@ function App({ liveClients }: AppProps = {}) {
   });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const liveSignerRef = useRef<LiveSignerClient | undefined>(liveClients?.signer);
+  const liveSignerSourceRef = useRef<SignerSource | undefined>(
+    liveClients?.signer ? "imtoken-web" : undefined,
+  );
   const liveInboundRef = useRef<LiveInboundClient | undefined>(liveClients?.inbound);
   const autoVerifyStarted = useRef(false);
   const routedDappPairingStarted = useRef(false);
   const imTokenRestoreStarted = useRef(false);
   const inboundRestoreStarted = useRef(false);
+
+  const getOrCreateExternalSigner = useCallback(() => {
+    if (liveClients?.signer) return liveClients.signer;
+    if (
+      liveSignerRef.current &&
+      liveSignerSourceRef.current === signerSource
+    ) {
+      return liveSignerRef.current;
+    }
+    const signer =
+      signerSource === "walletconnect-fallback"
+        ? new ImTokenWalletConnectSigner(walletConnectProjectId)
+        : new ImTokenConnectSigner();
+    liveSignerRef.current = signer;
+    liveSignerSourceRef.current = signerSource;
+    return signer;
+  }, [liveClients?.signer, signerSource, walletConnectProjectId]);
 
   const walletManager = useWalletManager(() => selectedChainKey);
   const mainnetReadyChains = getMainnetChainConfigs();
@@ -646,6 +732,37 @@ function App({ liveClients }: AppProps = {}) {
     liveRequests,
     selectedLiveRequestId,
   );
+  const selectedNetworkChainKey = selectedNetworkScope as DemoChainKey;
+  const localVaultAddress =
+    localVaultSession?.wallet.address ?? localVaultRecord?.address;
+  const activeSignerAccount = useMemo(
+    () =>
+      signerSource === "local-token-core-vault" && localVaultAddress
+        ? buildLiveAccount(localVaultAddress)
+        : imTokenState.account,
+    [imTokenState.account, localVaultAddress, signerSource],
+  );
+  const connectedSigner: ConnectedSigner = {
+    source: signerSource,
+    label:
+      signerSource === "local-token-core-vault"
+        ? "Local Token Core Vault"
+        : signerSourceLabel(signerSource),
+    address:
+      signerSource === "local-token-core-vault"
+        ? localVaultAddress
+        : imTokenState.account?.address,
+    chainId: getChainConfig(selectedNetworkChainKey).chainId,
+    chainKey: selectedNetworkChainKey,
+    canSignMainnet:
+      signerSource !== "local-token-core-vault" ||
+      (localVaultMainnetEnabled && localVaultMainnetAcknowledged),
+    canSignTestnet: true,
+    isUnlocked:
+      signerSource === "local-token-core-vault"
+        ? Boolean(localVaultSession)
+        : Boolean(imTokenState.account),
+  };
   const liveDecision = selectedLiveRequest
     ? evaluateLiveRequestPolicy({
         request: selectedLiveRequest,
@@ -672,11 +789,15 @@ function App({ liveClients }: AppProps = {}) {
     setWarningAcknowledged(false);
   }
   const resolvedTheme = themeMode === "auto" ? autoTheme : themeMode;
-  const signerButtonLabel = imTokenState.account
-    ? formatShortSigner(imTokenState.account.address)
+  const signerButtonLabel = connectedSigner.address
+    ? formatShortSigner(connectedSigner.address)
     : imTokenState.status === "pairing"
       ? "Pairing..."
-      : "Connect imToken";
+      : signerSource === "local-token-core-vault"
+        ? "Local Vault"
+        : signerSource === "imtoken-web"
+          ? "Connect imToken Web"
+          : "Connect wallet";
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
@@ -698,6 +819,37 @@ function App({ liveClients }: AppProps = {}) {
   useEffect(() => {
     clearConnectRouteUri();
   }, []);
+
+  useEffect(() => {
+    void loadLocalTokenCoreVaults()
+      .then((records) => {
+        const first = records[0];
+        if (!first) return;
+        setLocalVaultRecord(first);
+        setLocalVaultName(first.name);
+        setLocalVaultUnlockMode(first.unlockMode);
+        setLocalVaultStatus(`Local Token Core Vault found: ${first.address}`);
+      })
+      .catch((error) => {
+        setLocalVaultStatus(
+          error instanceof Error
+            ? error.message
+            : "Local Token Core Vault storage could not be read.",
+        );
+      });
+  }, []);
+
+  useEffect(() => {
+    if (localVaultUnlockMode !== "passkey-prf") return;
+    void detectPasskeyPrfSupport().then((support) => {
+      if (!support.supported) {
+        setLocalVaultStatus(
+          support.reason ??
+            "Passkey PRF is unavailable; use password vault mode for this browser.",
+        );
+      }
+    });
+  }, [localVaultUnlockMode]);
 
   function updateFirewall<K extends keyof AgentFirewallSettings>(
     key: K,
@@ -726,7 +878,7 @@ function App({ liveClients }: AppProps = {}) {
     if (isRoutineWalletCoordinationRequest(request)) {
       const result = resolveLocalWalletCoordinationRequest(
         request,
-        imTokenState.account,
+        activeSignerAccount,
       );
       const decisionForReceipt = evaluateLiveRequestPolicy({
         request,
@@ -795,14 +947,26 @@ function App({ liveClients }: AppProps = {}) {
           }),
         );
       });
-  }, [firewall, imTokenState.account]);
+  }, [activeSignerAccount, firewall]);
 
   async function switchConnectedNetwork(scope: NetworkScope, source: "user" | "dapp") {
     const chain = getChainConfig(scope);
+    if (signerSource === "local-token-core-vault") {
+      if (scope === "sepolia" || scope === "baseSepolia") setSelectedChainKey(scope);
+      if (activeSignerAccount) {
+        await liveInboundRef.current?.updateActiveChain?.(activeSignerAccount, scope);
+      }
+      setLiveActionStatus(
+        activeSignerAccount
+          ? `${chain.label} selected for Local Token Core Vault. Connected DApps were notified.`
+          : `${chain.label} selected. Create or unlock a Local Token Core Vault before DApp pairing.`,
+      );
+      return;
+    }
     const signer = liveSignerRef.current;
     if (!imTokenState.account || !signer?.switchChain) {
       setLiveActionStatus(
-        `Network set to ${chain.label}. Connect imToken to switch the wallet network.`,
+        `Network set to ${chain.label}. Connect ${signerSourceLabel(signerSource)} to switch the wallet network.`,
       );
       return;
     }
@@ -1091,36 +1255,159 @@ function App({ liveClients }: AppProps = {}) {
     });
   }
 
+  async function handleCreateLocalVault() {
+    setLocalVaultStatus("Creating encrypted Local Token Core Vault...");
+    try {
+      const unlockMode =
+        localVaultUnlockMode === "passkey-prf"
+          ? (await detectPasskeyPrfSupport()).supported
+            ? "passkey-prf"
+            : "password"
+          : localVaultUnlockMode;
+      const session = await createLocalTokenCoreVault({
+        name: localVaultName.trim() || "IntentProof local vault",
+        password: localVaultPassword,
+        chainKey: selectedNetworkChainKey,
+        unlockMode,
+      });
+      await saveLocalTokenCoreVault(session.record);
+      setLocalVaultRecord(session.record);
+      setLocalVaultSession(session);
+      setLocalVaultUnlockMode(unlockMode);
+      setLocalVaultStatus(`Local Token Core Vault created: ${session.record.address}`);
+      setLiveActionStatus("Local Token Core Vault is ready for DApp pairing.");
+    } catch (error) {
+      setLocalVaultStatus(
+        error instanceof Error ? error.message : "Local Token Core Vault creation failed.",
+      );
+    }
+  }
+
+  async function handleUnlockLocalVault() {
+    if (!localVaultRecord) {
+      setLocalVaultStatus("Create a Local Token Core Vault before unlocking.");
+      return;
+    }
+    setLocalVaultStatus("Unlocking Local Token Core Vault...");
+    try {
+      const session = await unlockLocalTokenCoreVault({
+        record: localVaultRecord,
+        password: localVaultPassword,
+        chainKey: selectedNetworkChainKey,
+      });
+      setLocalVaultSession(session);
+      setLocalVaultStatus(`Local Token Core Vault unlocked: ${session.wallet.address}`);
+      setLiveActionStatus("Local Token Core Vault is unlocked for reviewed requests.");
+    } catch (error) {
+      setLocalVaultSession(undefined);
+      setLocalVaultStatus(
+        error instanceof Error ? error.message : "Local Token Core Vault unlock failed.",
+      );
+    }
+  }
+
+  function handleLockLocalVault() {
+    setLocalVaultSession(undefined);
+    setLocalVaultPassword("");
+    setLocalVaultStatus("Local Token Core Vault locked. Password cleared from session state.");
+  }
+
+  async function handleDeleteLocalVault() {
+    try {
+      await clearLocalTokenCoreVaults();
+      setLocalVaultRecord(undefined);
+      setLocalVaultSession(undefined);
+      setLocalVaultPassword("");
+      setLocalVaultMainnetEnabled(false);
+      setLocalVaultMainnetAcknowledged(false);
+      setLocalVaultStatus("Local Token Core Vault deleted from this browser.");
+      setLiveActionStatus("Local vault deleted. Connected DApps must reconnect with another signer.");
+    } catch (error) {
+      setLocalVaultStatus(
+        error instanceof Error ? error.message : "Deleting the local vault failed.",
+      );
+    }
+  }
+
+  async function handleSignerSourceChange(nextSource: SignerSource) {
+    if (nextSource === signerSource) return;
+    setSignerSource(nextSource);
+    if (
+      nextSource === "local-token-core-vault" &&
+      isMainnetChainKey(selectedNetworkChainKey)
+    ) {
+      setSelectedNetworkScope("sepolia");
+      setSelectedChainKey("sepolia");
+    }
+    setAccountMenuOpen(false);
+    setLiveRequests([]);
+    setSelectedLiveRequestId(undefined);
+    setLiveWarningAcknowledged(false);
+    try {
+      await liveSignerRef.current?.disconnect?.();
+    } catch {
+      // A source switch should still require fresh DApp pairing if disconnect fails.
+    }
+    liveSignerRef.current = liveClients?.signer;
+    liveSignerSourceRef.current = liveClients?.signer ? nextSource : undefined;
+    liveInboundRef.current = undefined;
+    routedDappPairingStarted.current = false;
+    inboundRestoreStarted.current = false;
+    imTokenRestoreStarted.current = false;
+    setImTokenState(defaultSignerState(nextSource, walletConnectConfigured));
+    setDappState({
+      status: walletConnectConfigured ? "idle" : "setup-required",
+      label: walletConnectConfigured ? "Ready" : "WalletConnect setup required",
+      detail: walletConnectConfigured
+        ? "Reconnect the DApp after changing signer source."
+        : "WalletConnect Project ID is required for live DApp routing.",
+    });
+    setLiveActionStatus(
+      `${signerSourceLabel(nextSource)} selected. Reconnect DApps before handling new requests.`,
+    );
+  }
+
   async function handleConnectImToken() {
-    if (!walletConnectConfigured) {
+    if (signerSource === "local-token-core-vault") {
+      setLiveActionStatus(
+        localVaultRecord
+          ? "Unlock the Local Token Core Vault to use it as the DApp signer."
+          : "Create a Local Token Core Vault to use it as the DApp signer.",
+      );
+      return;
+    }
+    if (signerSource === "walletconnect-fallback" && !walletConnectConfigured) {
       setImTokenState({
         status: "setup-required",
         label: "WalletConnect setup required",
-        detail: "Set VITE_WALLETCONNECT_PROJECT_ID to connect imToken.",
+        detail: "Set VITE_WALLETCONNECT_PROJECT_ID to connect a fallback wallet.",
       });
       return;
     }
     setImTokenState({
       status: "pairing",
-      label: "Pairing imToken",
-      detail: "Approve the WalletConnect pairing in imToken.",
+      label:
+        signerSource === "imtoken-web"
+          ? "Connecting imToken Web"
+          : "Pairing WalletConnect signer",
+      detail:
+        signerSource === "imtoken-web"
+          ? "Complete the imToken Web account request."
+          : "Approve the WalletConnect pairing in the final signer.",
     });
     try {
-      const signer =
-        liveSignerRef.current ??
-        new ImTokenWalletConnectSigner(walletConnectProjectId);
-      liveSignerRef.current = signer;
+      const signer = getOrCreateExternalSigner();
       const result = await signer.connectImToken();
       setImTokenState(result.state);
       setLiveActionStatus(result.state.detail);
     } catch (error) {
       setImTokenState({
         status: "error",
-        label: "imToken connection failed",
+        label: `${signerSourceLabel(signerSource)} connection failed`,
         detail:
           error instanceof Error
             ? error.message
-            : "WalletConnect imToken pairing failed.",
+            : "External signer connection failed.",
       });
     }
   }
@@ -1133,15 +1420,12 @@ function App({ liveClients }: AppProps = {}) {
     }
     await resetLiveWalletConnectSessions();
     liveSignerRef.current = undefined;
+    liveSignerSourceRef.current = undefined;
     liveInboundRef.current = undefined;
     imTokenRestoreStarted.current = false;
     inboundRestoreStarted.current = false;
     routedDappPairingStarted.current = false;
-    setImTokenState({
-      status: "idle",
-      label: "Ready to connect imToken",
-      detail: "Connect imToken through WalletConnect for final signing.",
-    });
+    setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
     setDappState({
       status: "idle",
       label: "Ready",
@@ -1152,23 +1436,33 @@ function App({ liveClients }: AppProps = {}) {
     setLiveRequests([]);
     setSelectedLiveRequestId(undefined);
     setLiveWarningAcknowledged(false);
-    setLiveActionStatus("Live WalletConnect sessions reset. Reconnect imToken, then reconnect the DApp.");
+    setLiveActionStatus(
+      "Live WalletConnect sessions reset. Reconnect the selected signer, then reconnect the DApp.",
+    );
   }
 
   async function handleDisconnectAccount() {
     setAccountMenuOpen(false);
+    if (signerSource === "local-token-core-vault") {
+      handleLockLocalVault();
+      setLiveActionStatus("Local Token Core Vault locked. Requests will not be signed until it is unlocked again.");
+      return;
+    }
     await handleResetLiveSessions();
-    setLiveActionStatus("imToken disconnected. Connect again before forwarding DApp requests.");
+    setLiveActionStatus("Signer disconnected. Connect again before handling DApp requests.");
   }
 
   useEffect(() => {
-    if (!walletConnectConfigured || imTokenRestoreStarted.current) return;
+    if (
+      signerSource === "local-token-core-vault" ||
+      (signerSource === "walletconnect-fallback" && !walletConnectConfigured) ||
+      imTokenRestoreStarted.current
+    ) {
+      return;
+    }
     imTokenRestoreStarted.current = true;
 
-    const signer =
-      liveSignerRef.current ??
-      new ImTokenWalletConnectSigner(walletConnectProjectId);
-    liveSignerRef.current = signer;
+    const signer = getOrCreateExternalSigner();
     if (!signer.restoreSession) return;
 
     void signer
@@ -1182,7 +1476,7 @@ function App({ liveClients }: AppProps = {}) {
         // Silent restore keeps first-load UX unchanged when no WalletConnect
         // session exists or the provider cannot restore without user action.
       });
-  }, [walletConnectConfigured, walletConnectProjectId]);
+  }, [getOrCreateExternalSigner, signerSource, walletConnectConfigured, walletConnectProjectId]);
 
   const handleConnectDapp = useCallback(async (pairingUriOverride?: string) => {
     const pairingUri = (pairingUriOverride ?? dappPairingUri).trim();
@@ -1194,11 +1488,14 @@ function App({ liveClients }: AppProps = {}) {
       });
       return;
     }
-    if (!imTokenState.account) {
+    if (!activeSignerAccount) {
       setDappState({
         status: "error",
-        label: "Connect imToken first",
-        detail: "IntentProof needs an imToken account before approving a DApp session.",
+        label: "Connect signer first",
+        detail:
+          signerSource === "local-token-core-vault"
+            ? "Create or unlock the Local Token Core Vault before approving a DApp session."
+            : `IntentProof needs ${signerSourceLabel(signerSource)} before approving a DApp session.`,
       });
       return;
     }
@@ -1230,7 +1527,7 @@ function App({ liveClients }: AppProps = {}) {
         dappUriSource === "route"
           ? "Using the routed WalletConnect request from the DApp."
           : "Waiting for WalletConnect session proposal.",
-      account: imTokenState.account,
+      account: activeSignerAccount,
     });
     try {
       const inbound =
@@ -1240,7 +1537,7 @@ function App({ liveClients }: AppProps = {}) {
           setLiveActionStatus(state.detail);
         });
       liveInboundRef.current = inbound;
-      const result = await inbound.connectDapp(pairingValidation.uri, imTokenState.account);
+      const result = await inbound.connectDapp(pairingValidation.uri, activeSignerAccount);
       setDappState(result.state);
       setLiveActionStatus(result.state.detail);
     } catch (error) {
@@ -1253,7 +1550,8 @@ function App({ liveClients }: AppProps = {}) {
   }, [
     dappPairingUri,
     dappUriSource,
-    imTokenState.account,
+    activeSignerAccount,
+    signerSource,
     walletConnectConfigured,
     walletConnectProjectId,
     handleIncomingLiveRequest,
@@ -1264,7 +1562,7 @@ function App({ liveClients }: AppProps = {}) {
       dappUriSource !== "route" ||
       routedDappPairingStarted.current ||
       !dappPairingUri.trim() ||
-      !imTokenState.account ||
+      !activeSignerAccount ||
       !walletConnectConfigured
     ) {
       return;
@@ -1275,7 +1573,7 @@ function App({ liveClients }: AppProps = {}) {
     dappPairingUri,
     dappUriSource,
     handleConnectDapp,
-    imTokenState.account,
+    activeSignerAccount,
     walletConnectConfigured,
   ]);
 
@@ -1284,7 +1582,7 @@ function App({ liveClients }: AppProps = {}) {
       !walletConnectConfigured ||
       inboundRestoreStarted.current ||
       dappUriSource === "route" ||
-      !imTokenState.account
+      !activeSignerAccount
     ) {
       return;
     }
@@ -1300,7 +1598,7 @@ function App({ liveClients }: AppProps = {}) {
     if (!inbound.restoreSession) return;
 
     void inbound
-      .restoreSession(imTokenState.account)
+      .restoreSession(activeSignerAccount)
       .then((result) => {
         if (!result.ok) return;
         setDappState(result.state);
@@ -1312,7 +1610,7 @@ function App({ liveClients }: AppProps = {}) {
       });
   }, [
     dappUriSource,
-    imTokenState.account,
+    activeSignerAccount,
     walletConnectConfigured,
     walletConnectProjectId,
     handleIncomingLiveRequest,
@@ -1326,7 +1624,7 @@ function App({ liveClients }: AppProps = {}) {
       }
       const result = resolveLocalWalletCoordinationRequest(
         selectedLiveRequest,
-        imTokenState.account,
+        activeSignerAccount,
       );
       try {
         await liveInboundRef.current?.approveRequest(selectedLiveRequest, result);
@@ -1360,14 +1658,70 @@ function App({ liveClients }: AppProps = {}) {
       }
       return;
     }
+    if (signerSource === "local-token-core-vault") {
+      const gate = evaluateLocalVaultSigningGate({
+        request: selectedLiveRequest,
+        decision: liveDecision,
+        vaultUnlocked: Boolean(localVaultSession),
+        mainnetEnabled: localVaultMainnetEnabled,
+        mainnetAcknowledged: localVaultMainnetAcknowledged,
+        warningAcknowledged: liveWarningAcknowledged,
+      });
+      if (!gate.allowed) {
+        setLiveActionStatus(gate.reason);
+        return;
+      }
+      if (!localVaultSession) {
+        setLiveActionStatus("Unlock the Local Token Core Vault before signing.");
+        return;
+      }
+      try {
+        setLiveActionStatus(
+          `Signing with Local Token Core Vault on ${selectedLiveRequest.chain.label}.`,
+        );
+        const result = await signLiveRequestWithLocalVault({
+          wallet: localVaultSession.wallet,
+          password: localVaultPassword,
+          request: selectedLiveRequest,
+          broadcast: true,
+        });
+        const dappResult =
+          result.kind === "broadcast" ? result.broadcastHash : result.txHash;
+        await liveInboundRef.current?.approveRequest(selectedLiveRequest, dappResult);
+        setLiveActivity((previous) => [
+          {
+            id: `receipt-${selectedLiveRequest.id}-${Date.now()}`,
+            requestId: selectedLiveRequest.id,
+            timestamp: new Date().toISOString(),
+            origin: selectedLiveRequest.origin,
+            method: selectedLiveRequest.method,
+            chainLabel: selectedLiveRequest.chain.label,
+            decision: liveDecision.label,
+            forwarded: true,
+            rejected: false,
+            resultPreview: dappResult,
+          },
+          ...previous,
+        ]);
+        setLiveRequests((previous) => removeLiveRequest(previous, selectedLiveRequest.id));
+        setLiveActionStatus("Request signed with Local Token Core Vault and returned to the DApp.");
+      } catch (error) {
+        setLiveActionStatus(
+          error instanceof Error
+            ? error.message
+            : "Local Token Core Vault signing failed.",
+        );
+      }
+      return;
+    }
     const signer = liveSignerRef.current;
     if (!signer) {
-      setLiveActionStatus("Connect imToken before forwarding a request.");
+      setLiveActionStatus(`Connect ${signerSourceLabel(signerSource)} before forwarding a request.`);
       return;
     }
     try {
       setLiveActionStatus(
-        `Waiting for imToken review on ${selectedLiveRequest.chain.label}.`,
+        `Waiting for ${signerSourceLabel(signerSource)} review on ${selectedLiveRequest.chain.label}.`,
       );
       const result = await signer.forward(selectedLiveRequest);
       await liveInboundRef.current?.approveRequest(selectedLiveRequest, result);
@@ -1388,7 +1742,7 @@ function App({ liveClients }: AppProps = {}) {
         ...previous,
       ]);
       setLiveRequests((previous) => removeLiveRequest(previous, selectedLiveRequest.id));
-      setLiveActionStatus("Request forwarded to imToken exactly once.");
+      setLiveActionStatus(`Request forwarded to ${signerSourceLabel(signerSource)} exactly once.`);
     } catch (error) {
       setLiveActionStatus(
         error instanceof Error ? error.message : "Forwarding to imToken failed.",
@@ -1693,25 +2047,32 @@ function App({ liveClients }: AppProps = {}) {
           <button
             type="button"
             className="wallet-connect-button"
-            title={imTokenState.detail}
+            title={
+              signerSource === "local-token-core-vault"
+                ? localVaultStatus
+                : imTokenState.detail
+            }
             onClick={() => {
-              if (imTokenState.account) {
+              if (connectedSigner.address) {
                 setAccountMenuOpen((open) => !open);
-              } else if (imTokenState.status !== "pairing") {
+              } else if (
+                signerSource !== "local-token-core-vault" &&
+                imTokenState.status !== "pairing"
+              ) {
                 void handleConnectImToken();
               }
             }}
-            aria-expanded={imTokenState.account ? accountMenuOpen : undefined}
+            aria-expanded={connectedSigner.address ? accountMenuOpen : undefined}
             disabled={imTokenState.status === "pairing"}
           >
             <span aria-hidden="true" className="wallet-dot" />
             {signerButtonLabel}
           </button>
-          {imTokenState.account && accountMenuOpen ? (
+          {connectedSigner.address && accountMenuOpen ? (
             <div className="wallet-account-menu" role="menu" aria-label="Connected account">
               <div className="account-menu-address">
                 <span>Connected signer</span>
-                <code>{imTokenState.account.address}</code>
+                <code>{connectedSigner.address}</code>
               </div>
               <button
                 type="button"
@@ -1719,7 +2080,9 @@ function App({ liveClients }: AppProps = {}) {
                 className="button-secondary"
                 onClick={() => void handleDisconnectAccount()}
               >
-                Disconnect imToken
+                {signerSource === "local-token-core-vault"
+                  ? "Lock local vault"
+                  : "Disconnect signer"}
               </button>
             </div>
           ) : null}
@@ -1768,16 +2131,42 @@ function App({ liveClients }: AppProps = {}) {
       ) : null}
       {activeProductTab === "protect" ? (
         <ProtectWalletScreen
+          signerPanel={
+            <SignerSourceSelector
+              source={signerSource}
+              connectedSigner={connectedSigner}
+              projectIdPresent={walletConnectConfigured}
+              vaultRecord={localVaultRecord}
+              vaultStatus={localVaultStatus}
+              vaultName={localVaultName}
+              vaultPassword={localVaultPassword}
+              vaultUnlockMode={localVaultUnlockMode}
+              vaultMainnetEnabled={localVaultMainnetEnabled}
+              vaultMainnetAcknowledged={localVaultMainnetAcknowledged}
+              selectedChainKey={selectedNetworkChainKey}
+              onSourceChange={(source) => void handleSignerSourceChange(source)}
+              onVaultNameChange={setLocalVaultName}
+              onVaultPasswordChange={setLocalVaultPassword}
+              onVaultUnlockModeChange={setLocalVaultUnlockMode}
+              onCreateVault={() => void handleCreateLocalVault()}
+              onUnlockVault={() => void handleUnlockLocalVault()}
+              onLockVault={handleLockLocalVault}
+              onDeleteVault={() => void handleDeleteLocalVault()}
+              onVaultMainnetEnabledChange={setLocalVaultMainnetEnabled}
+              onVaultMainnetAcknowledgedChange={setLocalVaultMainnetAcknowledged}
+            />
+          }
           connectDapp={
           <DappConnectionCard
             state={dappState}
             pairingUri={dappPairingUri}
             uriSource={dappUriSource}
             projectIdPresent={walletConnectConfigured}
-            imTokenConnected={Boolean(imTokenState.account)}
-            imTokenConnecting={imTokenState.status === "pairing"}
+            signerConnected={Boolean(activeSignerAccount)}
+            signerConnecting={imTokenState.status === "pairing"}
+            signerLabel={signerSourceLabel(signerSource)}
             onPairingUriChange={handleManualPairingUriChange}
-            onConnectImToken={() => void handleConnectImToken()}
+            onConnectSigner={() => void handleConnectImToken()}
             onConnect={() => void handleConnectDapp()}
             onResetLiveSessions={() => void handleResetLiveSessions()}
           />
@@ -1805,24 +2194,38 @@ function App({ liveClients }: AppProps = {}) {
             />
           }
           signingCard={
-            <LiveRequestCard
-              request={selectedLiveRequest}
-              decision={liveDecision}
-              warningAcknowledged={liveWarningAcknowledged}
-              onWarningAcknowledged={setLiveWarningAcknowledged}
-              onForward={() => void handleForwardLiveRequest()}
-              onReject={() => void handleRejectLiveRequest()}
-              browserAiModels={BROWSER_AI_MODEL_OPTIONS}
-              browserAiModelId={browserAiModelId}
-              browserAiState={selectedBrowserAiState}
-              onBrowserAiModelChange={setBrowserAiModelId}
-              onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
-              forwardTargetLabel={
-                imTokenState.account && /imtoken/i.test(imTokenState.label)
-                  ? "imToken"
-                  : "connected wallet"
-              }
-            />
+            <>
+              {signerSource === "local-token-core-vault" ? (
+                <LocalVaultMainnetGuard
+                  request={selectedLiveRequest}
+                  address={localVaultAddress}
+                  enabled={localVaultMainnetEnabled}
+                  acknowledged={localVaultMainnetAcknowledged}
+                />
+              ) : null}
+              <LiveRequestCard
+                request={selectedLiveRequest}
+                decision={liveDecision}
+                warningAcknowledged={liveWarningAcknowledged}
+                onWarningAcknowledged={setLiveWarningAcknowledged}
+                onForward={() => void handleForwardLiveRequest()}
+                onReject={() => void handleRejectLiveRequest()}
+                browserAiModels={BROWSER_AI_MODEL_OPTIONS}
+                browserAiModelId={browserAiModelId}
+                browserAiState={selectedBrowserAiState}
+                onBrowserAiModelChange={setBrowserAiModelId}
+                onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
+                forwardTargetLabel={
+                  signerSource === "local-token-core-vault"
+                    ? "Local Token Core Vault"
+                    : signerSource === "imtoken-web"
+                      ? "imToken Web"
+                      : imTokenState.account && /imtoken/i.test(imTokenState.label)
+                        ? "imToken"
+                        : "connected wallet"
+                }
+              />
+            </>
           }
           receiptSummary={
             hasActivity || liveActionStatus !== "Request Inbox is ready." ? (

@@ -210,11 +210,11 @@ describe("top dapp WalletConnect E2E harness", () => {
       }),
     );
     expect(screen.getAllByText("Risk High Impact").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
     await user.click(
-      screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
+      screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Reject request" }));
     expect(signer.forwarded).toBe(0);
 
@@ -224,11 +224,11 @@ describe("top dapp WalletConnect E2E harness", () => {
       }),
     );
     expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
     await user.click(
-      screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
+      screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
+    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("one-inch-sign");
 
@@ -240,9 +240,9 @@ describe("top dapp WalletConnect E2E harness", () => {
       }),
     );
     await user.click(
-      screen.getByLabelText("I reviewed these details and want imToken to make the final signing decision."),
+      screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
+    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
     await waitFor(() => expect(signer.forwarded).toBe(2));
     expect(signer.lastRequestId).toBe("sushi-limited-approval");
     expect(inbound.approvedResults).toEqual([

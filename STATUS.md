@@ -9,8 +9,10 @@ _Last updated: 2026-05-19_
 - Primary screen: `Protect Wallet`.
 - Default live network: Ethereum mainnet through WalletConnect/imToken
   forwarding. Examples and Token Core Lab remain testnet-first.
+- Signer sources: imToken Web, Local Token Core Vault, and WalletConnect fallback.
 - Live mode: DApps route WalletConnect requests through IntentProof, then
-  reviewable requests can be forwarded to imToken for final signing. Live
+  reviewable requests can be forwarded to imToken Web, signed with Local Token
+  Core Vault, or forwarded to a WalletConnect fallback signer. Live
   Request Inbox is evidence-first: it shows what the request does, what is
   unusual, what evidence is missing, and what IntentProof can or cannot relay.
   It does not claim to know the user's private intent or reduce arbitrary DApp
@@ -23,11 +25,11 @@ _Last updated: 2026-05-19_
   interception.
 - Token Core: preserved for local testnet wallet creation/signing, templates,
   analyze/decode/policy checks, CLI commands, Sepolia, and Base Sepolia.
-- Mainnet: Ethereum and Base mainnet show a warning in Protect Wallet
-  WalletConnect forwarding. There is no separate mainnet allow toggle. Requests
-  with unusual or incomplete evidence require acknowledgement before relay;
-  methods/chains IntentProof cannot mediate are not relayed. No local browser
-  mainnet signing or broadcast.
+- Mainnet: Ethereum and Base mainnet show a warning in Protect Wallet.
+  imToken Web and WalletConnect fallback keep custody in the external signer.
+  Local Token Core Vault mainnet signing is disabled by default and requires
+  explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
+  request.
 - Remote AI: browser AI parsing/summaries are off by default and require an
   explicit per-session opt-in before public `VITE_*` provider keys are used.
 - In-browser AI: optional WebLLM request-inbox review runs only after the user
@@ -41,7 +43,13 @@ _Last updated: 2026-05-19_
 ## Product Surface
 
 - [x] Protect Wallet is the default first screen.
-- [x] Top-right imToken account control.
+- [x] Protect Wallet signer source selector: imToken Web, Local Token Core
+  Vault, WalletConnect fallback.
+- [x] Local Token Core Vault uses `@consenlabs/tcx-wasm`, encrypted keystore
+  storage, account derivation, lock/unlock, delete, and reviewed signing gates.
+- [x] imToken Connect adapter added as the primary imToken Web signer path.
+- [x] Lightweight Token UI-inspired component layer added with provenance.
+- [x] Top-right signer account control.
 - [x] Connect a DApp card.
 - [x] Request Inbox.
 - [x] Verifiable Signing Card for live requests.
@@ -116,6 +124,9 @@ _Last updated: 2026-05-19_
 ## Preserved Token Core Capabilities
 
 - [x] `@consenlabs/tcx-wasm`.
+- [x] Local Token Core Vault product signer path.
+- [x] Encrypted local vault storage in IndexedDB when available.
+- [x] Local vault mainnet signing opt-in guard.
 - [x] Local fresh testnet wallet creation.
 - [x] Local Token Core testnet signing.
 - [x] Optional explicit testnet broadcast.
@@ -152,14 +163,15 @@ _Last updated: 2026-05-19_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 30 files, 200 tests.
+- `npm run test:unit` PASS - 37 files, 233 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 4 files, 31 tests.
-- `npm run build:ui` PASS.
+- `npm run test:ui` PASS - 4 files, 34 tests.
+- `npm run build:ui` PASS - WebLLM chunk-size warning only.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.
-- `npm run audit:high` PASS - 0 vulnerabilities.
+- `npm run audit:high` PASS - no high severity issues; moderate transitive
+  `ws` advisory remains through `@consenlabs/imtoken-connect -> viem`.
 - `npm run secrets:check` PASS.
 - `git diff --check` PASS.
 - Browser visual QA PASS for Protect Wallet desktop, secondary Examples/Token

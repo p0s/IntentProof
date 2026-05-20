@@ -4,10 +4,10 @@ Protect Wallet is a routed WalletConnect mode for imToken users:
 
 ```text
 DApp WalletConnect URI or QR
--> IntentProof pairs the DApp after imToken connects
+-> IntentProof pairs the DApp after the selected signer is available
 -> IntentProof receives and explains the request
 -> evidence confidence, risk, execution, and action state
--> reviewable request is forwarded to imToken for final signing
+-> reviewable request is forwarded to imToken Web, signed by Local Token Core Vault, or forwarded to a fallback wallet
 -> result or rejection is returned to the DApp session
 ```
 
@@ -25,7 +25,7 @@ path, but it is not promoted in the main product UI.
 ## Smartphone QR Flow
 
 IntentProof can be opened directly on a smartphone browser. In that setup, the
-user connects imToken as the final signer, then taps `Scan QR with camera` and
+user connects imToken Web or prepares a Local Token Core Vault, then taps `Scan QR with camera` and
 scans a WalletConnect QR displayed by a DApp on a desktop or another device.
 
 If the DApp is running on the same phone, use partner/custom wallet routing,
@@ -55,14 +55,18 @@ Unsupported or unsafe methods are not relayed by default:
 - Sepolia: `eip155:11155111`
 - Base Sepolia: `eip155:84532`
 
-Ethereum mainnet is the default live review network. Mainnet requests show a visible warning and are forwarded to
-imToken only; IntentProof does not locally sign or broadcast mainnet
-transactions.
+Ethereum mainnet is the default live review network. Mainnet requests show a
+visible warning. imToken Web and WalletConnect fallback keep custody in the
+external signer. Local Token Core Vault mainnet signing is disabled by default
+and requires explicit session opt-in, vault unlock, acknowledgement, and a
+non-blocked request.
 
 ## Security Rules
 
-- imToken remains the final signer.
-- Token Core remains the testnet signing and transaction-evidence layer.
+- imToken Web remains the primary external signer.
+- Local Token Core Vault is a first-class Token Core signer and stores only
+  encrypted keystore data in this browser.
+- Token Core remains the testnet lab and transaction-evidence layer.
 - Requests IntentProof cannot mediate are never forwarded.
 - Unusual or incomplete evidence requires explicit acknowledgement.
 - Evidence confidence is separate from risk: a recognized DApp or decoded

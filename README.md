@@ -7,10 +7,11 @@ requests can be forwarded to imToken for final signing.
 
 Live WalletConnect review defaults to Ethereum mainnet, with Base, Sepolia, and
 Base Sepolia available from the network selector. Examples work on a hosted
-build without environment variables, and Token Core Lab uses Token Core local
-signing only on Sepolia and Base Sepolia. Mainnet requests show warnings in the
-signing card and are forwarded to imToken only. IntentProof never performs local
-browser mainnet signing.
+build without environment variables. Users can choose imToken Web, a Local Token
+Core Vault, or a WalletConnect fallback as the signer source. Token Core Lab
+stays testnet-first, while the Local Token Core Vault can sign DApp requests
+only after IntentProof review and vault unlock. Mainnet local vault signing is
+disabled by default and requires explicit session opt-in.
 
 Hosted app: https://www.intentproof.xyz
 
@@ -20,8 +21,8 @@ IntentProof for protection.
 
 ## Product Flow
 
-Signer setup lives in the top-right account control. The working flow has three
-steps:
+Signer setup lives in the top-right account control and the signer selector.
+The working flow has three steps:
 
 1. Connect a DApp: partner DApps open IntentProof with a routed WalletConnect
    URI, or users paste a URI, paste/upload a QR screenshot, or scan a QR.
@@ -91,11 +92,16 @@ same screen.
 
 ## Product Surface
 
-- Protect Wallet: the primary product screen. Connect imToken, connect a DApp,
-  review live requests, use the mainnet warning, then forward to imToken or reject.
+- Protect Wallet: the primary product screen. Choose imToken Web, Local Token
+  Core Vault, or WalletConnect fallback; connect a DApp; review live requests;
+  then forward, sign locally, or reject.
 - Examples: secondary deterministic incoming requests for hosted review:
   safe ERC-20 transfer PASS, unlimited approval BLOCK, WETH wrap PASS/WARN, swap
   route policy WARN/BLOCK, and bridge/chain mismatch BLOCK.
+- Local Token Core Vault: first-class product signer using `@consenlabs/tcx-wasm`
+  for fresh wallet creation, encrypted keystore storage in IndexedDB, account
+  derivation, unlock, and reviewed transaction signing. It stores no plaintext
+  mnemonic, private key, passkey secret, or vault password.
 - Token Core Lab: secondary fresh local Token Core testnet wallet creation, Token Core
   signing, and optional explicit Sepolia/Base Sepolia broadcast. No browser
   wallet-file import/export exists.
@@ -133,7 +139,9 @@ IntentProof is derived from the official Token Core CLI demo branch at
 `token-core/tcx-examples/cli` and uses:
 
 - `@consenlabs/tcx-wasm`
-- local Token Core testnet wallet creation and signing
+- Local Token Core Vault creation, encrypted keystore storage, account
+  derivation, and reviewed local signing
+- local Token Core testnet wallet creation and signing in Token Core Lab
 - shared CLI/UI testnet wallet storage
 - transaction templates for ETH, ERC-20 transfer, ERC-20 approve, WETH, and
   custom calldata
@@ -141,15 +149,19 @@ IntentProof is derived from the official Token Core CLI demo branch at
 - Sepolia and Base Sepolia signing/broadcast support
 - preserved CLI scripts and tests
 
-WalletConnect live mode uses Reown/WalletConnect packages with dynamic imports
-so Examples and Token Core Lab still run when no project id is set.
+imToken Web signing uses `@consenlabs/imtoken-connect` as the primary external
+signer path. WalletConnect live mode uses Reown/WalletConnect packages with
+dynamic imports so Examples and Token Core Lab still run when no project id is
+set.
 
 ## Safety Boundaries
 
 - Ethereum mainnet is the default live WalletConnect network; Examples and
   Token Core Lab remain testnet-first.
-- Mainnet forwarding is allowed only through imToken and shows a warning.
-- No local browser mainnet signing or broadcast.
+- Mainnet forwarding through imToken Web or a WalletConnect fallback shows a warning.
+- Local Token Core Vault mainnet signing is disabled by default and requires
+  explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
+  request.
 - Direct DApp-to-imToken sessions bypass IntentProof.
 - Requests IntentProof cannot mediate are not forwarded.
 - Unusual or incomplete evidence requires explicit acknowledgement before forwarding.

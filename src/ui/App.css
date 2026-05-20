@@ -270,6 +270,114 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.signer-source-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.signer-source-state {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-bg) 82%, transparent);
+  padding: 14px;
+}
+
+.signer-source-state div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.signer-source-state span,
+.vault-form-grid span,
+.vault-address-panel span {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.signer-source-state code,
+.vault-address-panel code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.local-vault-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+}
+
+.local-vault-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.vault-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vault-form-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.vault-address-panel {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface-bg);
+}
+
+.local-vault-mainnet-guard {
+  display: grid;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--warning), transparent 48%);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--warning), transparent 91%);
+  color: var(--text);
+  padding: 16px;
+}
+
+.local-vault-mainnet-guard dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.local-vault-mainnet-guard div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.local-vault-mainnet-guard dt {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.local-vault-mainnet-guard dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .live-connect-card,
 .live-request-card,
 .request-inbox {

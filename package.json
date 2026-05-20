@@ -26,6 +26,7 @@
     "abi:keystone": "node scripts/generate-keystone-abi-registry.mjs"
   },
   "dependencies": {
+    "@consenlabs/imtoken-connect": "^1.0.1",
     "@consenlabs/tcx-wasm": "^0.8.0",
     "@mlc-ai/web-llm": "^0.2.83",
     "@reown/walletkit": "^1.5.5",

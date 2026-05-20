@@ -55,19 +55,21 @@ Demo video: upload a 60-90 second video under 20 MB using `DEMO_SCRIPT.md`.
 ## Token Core Usage Notes
 
 Built from the official Token Core CLI demo branch at
-`token-core/tcx-examples/cli`. IntentProof uses `@consenlabs/tcx-wasm`, local
-Token Core testnet wallet creation/signing, transaction templates,
-analyze/decode, policy pre-checks, sign/broadcast flows, Sepolia/Base Sepolia
-configuration, and preserved CLI scripts. Token UI and Security Skill were used
-as design and safety references.
+`token-core/tcx-examples/cli`. IntentProof uses `@consenlabs/tcx-wasm` for the
+Local Token Core Vault, encrypted keystore-based wallet creation, account
+derivation, local signing, Token Core Lab testnet signing, transaction
+templates, analyze/decode, policy pre-checks, sign/broadcast flows,
+Sepolia/Base Sepolia configuration, and preserved CLI scripts. A lightweight
+Token UI-inspired component layer and Security Skill guidance are documented in
+provenance files.
 
 ## Live WalletConnect Mode
 
-Protect Wallet is the primary product surface. It connects imToken through
-WalletConnect as the final signer, accepts routed DApp WalletConnect requests,
-normalizes incoming JSON-RPC requests, runs policy/Token Core evidence checks,
-and either explains why IntentProof cannot relay the request or forwards the
-exact reviewable request to imToken.
+Protect Wallet is the primary product surface. Users choose imToken Web, Local
+Token Core Vault, or WalletConnect fallback as the signer source. IntentProof
+accepts routed DApp WalletConnect requests, normalizes incoming JSON-RPC
+requests, runs policy/Token Core evidence checks, and either explains why the
+request cannot continue or forwards/signs with the selected signer.
 
 Users connect DApps from the main Connect a DApp card by pasting a
 WalletConnect URI, pasting/uploading a QR screenshot, or scanning a QR with the
@@ -93,13 +95,14 @@ work.
 
 ## Mainnet Boundary
 
-Ethereum Mainnet and Base Mainnet are supported only in Protect Wallet
-WalletConnect forwarding. Ethereum is the default live network, and mainnet
-requests show a clear warning before forwarding. IntentProof does not custody
-mainnet keys, does not sign mainnet transactions in the browser, and never
-broadcasts mainnet transactions locally. Undecoded calldata and Universal
-Router command streams are shown as incomplete evidence and require explicit
-review before relay. Direct DApp-to-imToken sessions bypass IntentProof.
+Ethereum Mainnet and Base Mainnet are supported in Protect Wallet review.
+Ethereum is the default live network, and mainnet requests show a clear warning.
+imToken Web and WalletConnect fallback keep custody in the external signer.
+Local Token Core Vault mainnet signing is disabled by default and requires
+explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
+request. Undecoded calldata and Universal Router command streams are shown as
+incomplete evidence and require explicit review before relay. Direct
+DApp-to-imToken sessions bypass IntentProof.
 
 Remote AI parsing and summaries are off by default in the browser. If local
 provider keys are configured, the user must opt in for the session before
@@ -112,7 +115,8 @@ review packet instead of raw calldata, and never changes forwarding authority.
 
 1. Open the hosted link.
 2. Show Protect Wallet as the first screen.
-3. Show the top-right imToken account control and the Connect a DApp card.
+3. Show the signer selector: imToken Web, Local Token Core Vault, and
+   WalletConnect fallback.
 4. Select a routine request and forward it to imToken in the configured/fake demo
    flow.
 5. Select the mainnet unlimited approval request and show the approval details,
@@ -120,15 +124,17 @@ review packet instead of raw calldata, and never changes forwarding authority.
 6. Select the typed-data request and show human-readable review before forward.
 7. Optionally mention `/demo-dapp` as a small integration example.
 8. Open Examples and run all five deterministic request outcomes.
-9. Open Token Core Lab and show fresh local Token Core wallet controls.
+9. Show the Local Token Core Vault card, then open Token Core Lab for the
+   preserved testnet proof path.
 10. Open Activity and show a non-secret receipt summary.
 
 ## End-User Path
 
-0. Connect imToken from the top-right account control.
+0. Choose a signer source.
 1. Connect a DApp through IntentProof.
 2. Review the Request Inbox.
-3. Forward reviewed requests to imToken or reject them from the review card.
+3. Forward to imToken Web, sign with Local Token Core Vault, or reject from the
+   review card.
 4. Use Examples for deterministic hosted examples.
 7. Use Token Core Lab only for fresh local Token Core testnet wallets.
 
@@ -141,8 +147,9 @@ review packet instead of raw calldata, and never changes forwarding authority.
 - Known DApp does not mean automatically safe.
 - Routine account, chain, and capability requests are answered locally and
   moved to Activity.
-- Mainnet forwarding shows a warning and remains imToken-forwarded only.
-- No local browser mainnet signing.
+- Mainnet forwarding shows a warning.
+- Local Token Core Vault mainnet signing is session opt-in only and remains
+  blocked for BLOCK requests.
 - Full target addresses are shown in confirmation contexts.
 - Address poisoning heuristic compares trusted recipients and warns on
   prefix/suffix lookalikes.
@@ -231,13 +238,13 @@ Latest local verification:
 ```text
 npm run lint                 PASS
 npm run typecheck            PASS
-npm run test:unit            PASS - 30 files, 200 tests
+npm run test:unit            PASS - 37 files, 233 tests
 npm run test:cli             PASS - 4 files, 37 tests
 npm run test:smoke:chains    PASS - 1 file, 7 tests
-npm run test:ui              PASS - 4 files, 31 tests
-npm run build:ui             PASS
-npm run verify               PASS
-npm run audit:high           PASS - 0 vulnerabilities
+npm run test:ui              PASS - 4 files, 34 tests
+npm run build:ui             PASS - WebLLM chunk-size warning only
+npm run verify               PASS equivalent via component commands
+npm run audit:high           PASS - no high severity issues; moderate transitive ws advisory remains through @consenlabs/imtoken-connect -> viem
 npm run secrets:check        PASS
 git diff --check             PASS
 ```

@@ -15,10 +15,11 @@ interface DappConnectionCardProps {
   pairingUri: string;
   uriSource: "manual" | "route";
   projectIdPresent: boolean;
-  imTokenConnected: boolean;
-  imTokenConnecting: boolean;
+  signerConnected: boolean;
+  signerConnecting: boolean;
+  signerLabel: string;
   onPairingUriChange: (uri: string) => void;
-  onConnectImToken: () => void;
+  onConnectSigner: () => void;
   onConnect: () => void;
   onResetLiveSessions: () => void;
 }
@@ -88,10 +89,11 @@ export function DappConnectionCard({
   pairingUri,
   uriSource,
   projectIdPresent,
-  imTokenConnected,
-  imTokenConnecting,
+  signerConnected,
+  signerConnecting,
+  signerLabel,
   onPairingUriChange,
-  onConnectImToken,
+  onConnectSigner,
   onConnect,
   onResetLiveSessions,
 }: DappConnectionCardProps) {
@@ -105,14 +107,14 @@ export function DappConnectionCard({
     pairingUri.trim().length > 0 ? validateWalletConnectUri(pairingUri) : undefined;
   const hasValidPairingUri = Boolean(manualValidation?.ok);
   const canPair =
-    projectIdPresent && imTokenConnected && hasValidPairingUri;
+    projectIdPresent && signerConnected && hasValidPairingUri;
   const shouldShowStatusDetail =
     state.status !== "idle" && state.detail.trim().length > 0;
   const canCloseConnections = state.status === "connected";
   const connectedSessions = state.sessions ?? [];
   const buttonLabel =
-    !imTokenConnected && hasValidPairingUri
-      ? "Connect imToken first"
+    !signerConnected && hasValidPairingUri
+      ? "Connect signer first"
       : hasRoutedUri
         ? "Pair routed DApp through IntentProof"
         : "Connect DApp through IntentProof";
@@ -240,8 +242,8 @@ export function DappConnectionCard({
       </div>
       <p>
         {hasRoutedUri
-          ? "Connect imToken here to approve the routed session and start receiving requests."
-          : "Scan a DApp QR or paste its WalletConnect URI. IntentProof reviews requests before imToken signs."}
+          ? "Connect the selected signer here to approve the routed session and start receiving requests."
+          : "Scan a DApp QR or paste its WalletConnect URI. IntentProof reviews requests before the selected signer continues."}
       </p>
       {shouldShowStatusDetail ? (
         <p className={`connection-status-detail ${state.status}`}>{state.detail}</p>
@@ -366,21 +368,21 @@ export function DappConnectionCard({
           and the Token Core Lab still work without it.
         </WalletConnectSetupNotice>
       ) : null}
-      {!imTokenConnected && hasValidPairingUri ? (
+      {!signerConnected && hasValidPairingUri ? (
         <div className="signer-needed-callout">
           <div>
-            <strong>Connect imToken to continue</strong>
+            <strong>Connect {signerLabel} to continue</strong>
             <span>
-              DApp request detected. IntentProof needs your final signing wallet
+              DApp request detected. IntentProof needs the selected signer
               before it can approve this DApp session.
             </span>
           </div>
           <button
             type="button"
-            onClick={onConnectImToken}
-            disabled={!projectIdPresent || imTokenConnecting}
+            onClick={onConnectSigner}
+            disabled={!projectIdPresent || signerConnecting}
           >
-            {imTokenConnecting ? "Connecting..." : "Connect imToken to continue"}
+            {signerConnecting ? "Connecting..." : `Connect ${signerLabel} to continue`}
           </button>
         </div>
       ) : null}

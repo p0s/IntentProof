@@ -24,7 +24,7 @@ Build **IntentProof Tx Guard** for the imToken 10th Anniversary AI Co-creation C
 
 **Hard rule**
 
-This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof, explains the request using decode/simulation/policy evidence, and relays reviewable requests to imToken for final signing. It does not claim to know the user's private intent for arbitrary live DApp requests. Examples and Token Core Lab remain available without API keys. At least one PASS example scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Mainnet support is imToken-forwarded only; mainnet requests show a warning and no local browser mainnet signing is allowed.
+This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof, explains the request using decode/simulation/policy evidence, and then uses the selected signer: imToken Web, a Local Token Core Vault, or a WalletConnect fallback. It does not claim to know the user's private intent for arbitrary live DApp requests. Examples and Token Core Lab remain available without API keys. At least one PASS example scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Local Token Core Vault signing defaults to testnet; mainnet local vault signing is session opt-in only after the vault is selected, unlocked, warnings are acknowledged, and IntentProof has not blocked the request.
 
 ---
 
@@ -186,7 +186,7 @@ Core safety behavior:
 - Show full addresses in confirmation contexts.
 - Keep key material local.
 - Default live network is Ethereum mainnet through WalletConnect/imToken forwarding.
-- Show clear warnings for mainnet write actions; mainnet signing is imToken-forwarded only.
+- Show clear warnings for mainnet write actions. Mainnet local vault signing is disabled by default and requires explicit session opt-in.
 - Keep Examples and Token Core Lab testnet-first.
 - Never ask for, store, or display real mnemonics/private keys.
 - State safety boundaries in README and SUBMISSION.
@@ -279,7 +279,7 @@ WalletConnect forwarding.
 - IntentProof reviews and forwards to imToken; it does not custody mainnet keys.
 - No separate mainnet allow toggle exists; the network selector and request
   chain are the source of truth.
-- No local browser mainnet signing.
+- No local browser mainnet signing unless the Local Token Core Vault is selected, unlocked, explicitly opted into mainnet for the session, and the request is not blocked.
 - No local browser mainnet broadcast.
 - Requests IntentProof cannot mediate are never forwarded.
 - Undecodable mainnet transaction calldata is shown as incomplete evidence and
@@ -746,7 +746,7 @@ Never show raw hex as the main explanation. Raw calldata may appear in an expand
 - BLOCK and DANGER disable signing in the default demo.
 - Broadcast is a separate button after signing.
 - Broadcast is testnet-only.
-- Mainnet chain metadata may be used for decode/analyze/policy readiness, but mainnet signing/broadcast is not enabled in this build.
+- Mainnet chain metadata may be used for decode/analyze/policy readiness. Local Token Core Vault mainnet signing is disabled by default and only available after explicit session opt-in; Token Core Lab remains testnet-only.
 - Receipt includes transaction hash if broadcast succeeds.
 - If broadcast fails, show a readable error and do not fake success.
 
@@ -1052,7 +1052,7 @@ Built from the official Token Core CLI demo branch at token-core/tcx-examples/cl
 - [ ] Token Core Lab supports Sepolia and Base Sepolia.
 - [ ] Mainnet warning appears for Ethereum/Base mainnet live requests.
 - [ ] Mainnet forwarding is allowed only through imToken and requires acknowledgement when evidence is unusual or incomplete.
-- [ ] No local browser mainnet signing exists.
+- [ ] Local browser mainnet signing is unavailable unless the Local Token Core Vault session opt-in gate is satisfied.
 - [ ] Scenario A PASS is demonstrable.
 - [ ] Scenario B BLOCK is demonstrable.
 - [ ] Scenario C PASS/WARN is demonstrable.

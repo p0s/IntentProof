@@ -1,0 +1,129 @@
+.token-ui-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-soft);
+}
+
+.token-ui-button {
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.token-ui-button-primary {
+  border-color: transparent;
+  color: white;
+  background: var(--accent);
+}
+
+.token-ui-button-secondary {
+  color: var(--text);
+  background: var(--panel-bg);
+}
+
+.token-ui-button-ghost {
+  color: var(--text-soft);
+  background: transparent;
+}
+
+.token-ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.token-ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  background: var(--panel-bg);
+}
+
+.token-ui-badge-success {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success), transparent 88%);
+}
+
+.token-ui-badge-warning {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning), transparent 88%);
+}
+
+.token-ui-badge-danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger), transparent 88%);
+}
+
+.token-ui-badge-info {
+  color: var(--info);
+  background: color-mix(in srgb, var(--info), transparent 88%);
+}
+
+.token-ui-alert {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  background: var(--panel-bg);
+}
+
+.token-ui-alert-warning {
+  border-color: color-mix(in srgb, var(--warning), transparent 62%);
+  background: color-mix(in srgb, var(--warning), transparent 90%);
+}
+
+.token-ui-alert-danger {
+  border-color: color-mix(in srgb, var(--danger), transparent 62%);
+  background: color-mix(in srgb, var(--danger), transparent 90%);
+}
+
+.token-ui-alert-success {
+  border-color: color-mix(in srgb, var(--success), transparent 62%);
+  background: color-mix(in srgb, var(--success), transparent 90%);
+}
+
+.token-ui-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.token-ui-tabs button {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  min-height: 96px;
+  background: var(--panel-bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.token-ui-tabs button.active {
+  border-color: color-mix(in srgb, var(--accent), transparent 30%);
+  background: color-mix(in srgb, var(--accent), transparent 90%);
+}
+
+.token-ui-tabs button strong,
+.token-ui-tabs button span {
+  display: block;
+}
+
+.token-ui-tabs button span {
+  margin-top: 6px;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}

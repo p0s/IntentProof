@@ -1,9 +1,9 @@
 # SECURITY.md
 
-IntentProof Tx Guard is testnet-first for the imToken Token Core AI co-creation
-campaign. It includes Ethereum Mainnet and Base Mainnet metadata for
-decode/analyze/policy readiness, but it is not an official imToken mobile
-integration and is not a mainnet signing product.
+IntentProof Tx Guard is testnet-first for local Token Core signing defaults in
+the imToken Token Core AI co-creation campaign. It includes Ethereum Mainnet and
+Base Mainnet metadata for decode/analyze/policy readiness, but it is not an
+official imToken mobile integration.
 
 ## Safety Model
 
@@ -13,11 +13,14 @@ integration and is not a mainnet signing product.
   default; WARN requires explicit acknowledgement.
 - Testnet by default: Sepolia and Base Sepolia are the local signing and
   broadcast networks.
-- Mainnet-ready, not mainnet-active: Ethereum Mainnet and Base Mainnet are
-  configured for analyze/decode/policy readiness only.
-- Local custody: Token Core wallet creation and signing happen locally.
+- Mainnet guarded: Ethereum Mainnet and Base Mainnet are configured for live
+  review. Local Token Core Vault mainnet signing is disabled by default and
+  requires explicit session opt-in, vault unlock, warning acknowledgement, and a
+  non-blocked request.
+- Local custody: Token Core wallet creation and signing happen locally when the
+  Local Token Core Vault or Token Core Lab is selected.
 - Browser UI custody hard-cut: wallet-file import/export is not available in
-  the web product. Use fresh generated testnet wallets for demos.
+  the web product. Use fresh generated wallets only.
 - Explicit broadcast: signing and broadcasting are separate actions.
 
 ## Never Submit Or Commit
@@ -45,9 +48,11 @@ keystores, and generated wallet files must never be sent to an AI provider.
   Etherscan, Tenderly, Gemini, or Groq keys are absent.
 - Swap and bridge scenarios are deterministic policy routes, not production
   aggregator or bridge integrations.
-- Live imToken / WalletConnect Mode is documented as a future extension
-  boundary unless a separate deployment explicitly implements it. Passkeys are a
-  future local session-approval guard, not a wallet-secret export mechanism.
+- imToken Web signing uses imToken Connect as an external signer. IntentProof
+  does not create imToken accounts or store imToken passkeys.
+- Passkey support is a local vault unlock/gating mechanism only. PRF is used
+  only when browser support can be proven; otherwise password vault mode remains
+  available.
 
 ## Reporting
 

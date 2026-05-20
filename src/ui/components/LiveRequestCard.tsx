@@ -154,7 +154,11 @@ export function LiveRequestCard({
   const semanticSummary = summarizeLiveRequest(request);
   const forwardButtonLabel = coordinationRequest
     ? "Answer locally"
-    : forwardTargetLabel === "imToken"
+    : forwardTargetLabel === "Local Token Core Vault"
+      ? "Sign with Local Token Core Vault"
+      : forwardTargetLabel === "imToken Web"
+        ? "Forward to imToken Web"
+        : forwardTargetLabel === "imToken"
       ? "Forward to imToken"
       : "Forward to connected wallet";
 
@@ -419,7 +423,7 @@ export function LiveRequestCard({
             checked={warningAcknowledged}
             onChange={(event) => onWarningAcknowledged(event.target.checked)}
           />
-          I reviewed these details and want imToken to make the final signing decision.
+          I reviewed these details and want the selected signer to continue.
         </label>
       ) : null}
       <div className="button-row">
