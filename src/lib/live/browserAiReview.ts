@@ -61,6 +61,7 @@ export interface BatchAiReview {
     requestId: string;
     headline: string;
     attentionLevel: "routine" | "review" | "high";
+    judgement: string;
     summary: string;
   }>;
 }
@@ -692,29 +693,57 @@ export function buildBatchAiReview(params: {
     review: AiTransactionReview;
   }>;
 }): BatchAiReview {
-  const highCount = params.reviews.filter(
-    (item) =>
+  const assessed = params.reviews.map((item) => {
+    const joinedSignals = [
+      item.review.plainEnglishSummary,
+      ...item.review.mainRisks,
+      ...item.review.scamPatternHints,
+      item.review.whyPolicyDecisionMakesSense,
+    ].join(" ");
+    const highSignal =
       item.policyDecision === "BLOCK" ||
-      item.review.confidence === "low" ||
-      item.review.mainRisks.some((risk) => /unlimited|revert|unknown|undecod/i.test(risk)),
-  ).length;
+      /unlimited|revert|unknown|undecod|phishing|drain|suspicious|malicious|unsupported|bridge/i.test(
+        joinedSignals,
+      );
+    const attentionLevel: "routine" | "review" | "high" = highSignal
+      ? "high"
+      : item.review.mainRisks.length ||
+          item.review.questionsToAskBeforeSigning.length ||
+          item.policyDecision === "WARN" ||
+          item.review.confidence !== "high"
+        ? "review"
+        : "routine";
+    const judgement =
+      attentionLevel === "high"
+        ? "High-risk or blocked signal found; do not treat this as safe without wallet-level verification."
+        : attentionLevel === "review"
+          ? "No concrete scam pattern found by local AI, but the request still needs user review."
+          : "No concrete scam pattern found in the normalized packet.";
+    return {
+      ...item,
+      attentionLevel,
+      judgement,
+    };
+  });
+  const highCount = assessed.filter((item) => item.attentionLevel === "high").length;
+  const reviewNeededCount = assessed.filter((item) => item.attentionLevel === "review").length;
   const reviewCount = params.reviews.length;
   return {
     overallHeadline: highCount
       ? `${highCount} request${highCount === 1 ? "" : "s"} need extra attention`
-      : "Open requests have readable review packets",
+      : reviewNeededCount
+        ? `${reviewNeededCount} request${reviewNeededCount === 1 ? "" : "s"} need normal wallet review`
+        : "No concrete scam pattern found in open requests",
     overallSummary: reviewCount
-      ? `Local AI reviewed ${reviewCount} normalized IntentProof packet${reviewCount === 1 ? "" : "s"}. This is advisory only; deterministic policy and wallet review still control forwarding.`
+      ? highCount
+        ? `Local AI found high-risk or blocked signals in ${highCount}/${reviewCount} normalized packet${reviewCount === 1 ? "" : "s"}. It cannot prove maliciousness, but these requests should not be forwarded without resolving the listed issues.`
+        : `Local AI found no concrete scam pattern in ${reviewCount} normalized packet${reviewCount === 1 ? "" : "s"}. This is not a safety guarantee; still verify DApp, chain, amounts, target, and wallet prompt.`
       : "There are no non-routine open requests for local AI review.",
-    requests: params.reviews.map((item) => ({
+    requests: assessed.map((item) => ({
       requestId: item.requestId,
       headline: item.review.headline,
-      attentionLevel:
-        item.policyDecision === "BLOCK" || item.review.confidence === "low"
-          ? "high"
-          : item.review.mainRisks.length
-            ? "review"
-            : "routine",
+      attentionLevel: item.attentionLevel,
+      judgement: item.judgement,
       summary: item.review.plainEnglishSummary,
     })),
   };

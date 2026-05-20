@@ -45,14 +45,43 @@ describe("batch local AI review", () => {
     });
 
     expect(result.overallHeadline).toContain("1 request");
+    expect(result.overallSummary).toContain("high-risk or blocked signals");
     expect(result.requests).toHaveLength(2);
     expect(result.requests[0]).toMatchObject({
       requestId: "swap",
-      attentionLevel: "routine",
+      attentionLevel: "review",
+      judgement:
+        "No concrete scam pattern found by local AI, but the request still needs user review.",
     });
     expect(result.requests[1]).toMatchObject({
       requestId: "approval",
       attentionLevel: "high",
+      judgement:
+        "High-risk or blocked signal found; do not treat this as safe without wallet-level verification.",
+    });
+  });
+
+  it("uses a concrete no-scam-signal summary when every request is readable", () => {
+    const result = buildBatchAiReview({
+      reviews: [
+        {
+          requestId: "switch",
+          policyDecision: "INFO",
+          review: review({
+            headline: "Network switch",
+            confidence: "high",
+            mainRisks: [],
+            questionsToAskBeforeSigning: [],
+          }),
+        },
+      ],
+    });
+
+    expect(result.overallHeadline).toBe("No concrete scam pattern found in open requests");
+    expect(result.overallSummary).toContain("no concrete scam pattern");
+    expect(result.requests[0]).toMatchObject({
+      attentionLevel: "routine",
+      judgement: "No concrete scam pattern found in the normalized packet.",
     });
   });
 

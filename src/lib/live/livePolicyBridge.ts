@@ -156,6 +156,10 @@ function buildReviewScore(params: {
     }
     if (request.tx?.to) reasons.push("Full target address is present.");
   }
+  if (request.method === "wallet_switchEthereumChain") {
+    reasons.push(`Network switch request targets ${request.chain.label}.`);
+    reasons.push("No transaction or message signature is requested.");
+  }
   if (evidence?.decode.status === "decoded") {
     reasons.push(
       `Decode evidence: ${evidence.decode.source} ${evidence.decode.functionName ?? "transaction"} decode.`,
@@ -199,7 +203,7 @@ function buildReviewScore(params: {
   if (titles.includes("Unlimited approval")) {
     reasons.push("Unlimited token approval is an unusual high-impact permission.");
   }
-  if (titles.includes("Mainnet request")) {
+  if (titles.includes("Mainnet request") || titles.includes("Network switch to mainnet")) {
     reasons.push("Mainnet assets are real, so the request needs user review.");
   }
   if (titles.includes("First-time recipient review")) {
@@ -261,7 +265,25 @@ export function evaluateLiveRequestPolicy(params: {
     issues.push(issue("block", "Cannot relay request", request.unsupportedReason));
   }
 
-  if (isMainnet && !isReadOnlyWalletCoordinationRequest(request)) {
+  if (
+    request.method === "wallet_switchEthereumChain" &&
+    isMainnet &&
+    !request.unsupportedReason
+  ) {
+    issues.push(
+      issue(
+        "warn",
+        "Network switch to mainnet",
+        "This only switches the connected wallet network, but Ethereum mainnet uses real assets. Confirm the DApp really needs this network.",
+      ),
+    );
+  }
+
+  if (
+    isMainnet &&
+    !isReadOnlyWalletCoordinationRequest(request) &&
+    request.method !== "wallet_switchEthereumChain"
+  ) {
     issues.push(
       issue(
         "warn",

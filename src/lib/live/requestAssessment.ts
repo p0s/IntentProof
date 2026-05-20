@@ -43,6 +43,7 @@ const COORDINATION_METHODS = new Set([
 ]);
 
 const SIGNATURE_METHODS = new Set(["personal_sign", "eth_signTypedData_v4"]);
+const NETWORK_SWITCH_METHOD = "wallet_switchEthereumChain";
 const HIGH_EVIDENCE_SELECTORS = new Set([
   "0x095ea7b3",
   "0xa9059cbb",
@@ -79,6 +80,10 @@ function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision)
   if (isRoutineWalletCoordinationRequest(request)) {
     confidence = "high";
     reasons.push("Routine wallet coordination method recognized.");
+  }
+  if (request.method === NETWORK_SWITCH_METHOD) {
+    confidence = "high";
+    reasons.push(`Wallet network switch target recognized: ${request.chain.label}.`);
   }
 
   if (knownProtocol) {
@@ -126,8 +131,13 @@ function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision)
     reasons.push("Signature method and payload type are recognized.");
   }
   if (request.unsupportedReason) {
-    confidence = "low";
-    reasons.push("Method or chain is outside the relay surface.");
+    if (request.method === NETWORK_SWITCH_METHOD) {
+      confidence = "high";
+      reasons.push("IntentProof recognizes this as a wallet network switch, but the target chain is outside the configured relay surface.");
+    } else {
+      confidence = "low";
+      reasons.push("Method or chain is outside the relay surface.");
+    }
   }
 
   const evidenceScore =
@@ -147,16 +157,33 @@ function riskFromRequest(request: LiveRequest, decision: LivePolicyDecision): {
   const risks: string[] = [];
   let riskLevel: RequestRiskLevel = "standard";
 
-  if (decision.severity === "block") {
-    riskLevel = "blocked";
-    risks.push(...issueText(decision));
-    return { riskLevel, riskReasons: risks };
-  }
   if (isRoutineWalletCoordinationRequest(request)) {
     return {
       riskLevel: "routine",
       riskReasons: ["No signature or transaction is requested."],
     };
+  }
+  if (request.method === NETWORK_SWITCH_METHOD) {
+    if (decision.severity === "block") {
+      return {
+        riskLevel: "blocked",
+        riskReasons: issueText(decision),
+      };
+    }
+    return {
+      riskLevel: isMainnetChainKey(request.chain.chainKey)
+        ? "needs-review"
+        : "routine",
+      riskReasons: [
+        `Requests switching the wallet to ${request.chain.label}.`,
+        "No transaction or message signature is requested.",
+      ],
+    };
+  }
+  if (decision.severity === "block") {
+    riskLevel = "blocked";
+    risks.push(...issueText(decision));
+    return { riskLevel, riskReasons: risks };
   }
   if (isMainnetChainKey(request.chain.chainKey)) {
     riskLevel = "needs-review";
@@ -173,10 +200,6 @@ function riskFromRequest(request: LiveRequest, decision: LivePolicyDecision): {
   if (SIGNATURE_METHODS.has(request.method)) {
     riskLevel = riskLevel === "standard" ? "needs-review" : riskLevel;
     risks.push("Signature payload should be read by the user before forwarding.");
-  }
-  if (request.method === "wallet_switchEthereumChain") {
-    riskLevel = isMainnetChainKey(request.chain.chainKey) ? "needs-review" : "routine";
-    risks.push(`Requests switching the wallet to ${request.chain.label}.`);
   }
   if (titles.has("Decoded Universal Router route") || titles.has("Known Uniswap router")) {
     riskLevel = riskLevel === "standard" ? "needs-review" : riskLevel;
@@ -206,6 +229,9 @@ function userActionLabel(
 ) {
   if (decision.severity === "block" || riskLevel === "blocked") return "Reject";
   if (isRoutineWalletCoordinationRequest(request)) return "Answer locally";
+  if (request.method === NETWORK_SWITCH_METHOD) {
+    return riskLevel === "needs-review" ? "Review, then answer locally" : "Answer locally";
+  }
   if (decision.requiresAcknowledgement) return "Review, then forward";
   return "Forward to connected wallet";
 }

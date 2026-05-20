@@ -95,6 +95,21 @@ export function RequestInbox({
         <div className="batch-ai-summary">
           <strong>{batchAiState.review.overallHeadline}</strong>
           <span>{batchAiState.review.overallSummary}</span>
+          {batchAiState.review.requests.length ? (
+            <ul className="batch-ai-request-list">
+              {batchAiState.review.requests.map((requestReview) => (
+                <li
+                  key={requestReview.requestId}
+                  className={`batch-ai-request-item attention-${requestReview.attentionLevel}`}
+                >
+                  <span>{requestReview.attentionLevel}</span>
+                  <strong>{requestReview.headline}</strong>
+                  <p>{requestReview.judgement}</p>
+                  <small>{requestReview.summary}</small>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
       <div className="request-list">

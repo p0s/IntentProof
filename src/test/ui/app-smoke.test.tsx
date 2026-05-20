@@ -675,12 +675,15 @@ describe("App smoke test", () => {
 
     expect(
       await screen.findByText(
-        /Open requests have readable review packets|request.*extra attention/i,
+        /No concrete scam pattern found in open requests|request.*need normal wallet review|request.*extra attention/i,
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Local AI reviewed 3 normalized IntentProof packets/i),
+      screen.getByText(/Local AI found no concrete scam pattern in 3 normalized packets/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Local AI reviewed 3 normalized IntentProof packets/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/No concrete scam pattern found by local AI/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("review").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
   });
 
@@ -851,6 +854,10 @@ describe("App smoke test", () => {
     );
 
     expect(screen.getAllByText("Switch to Ethereum Mainnet").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Evidence High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Risk Blocked")).not.toBeInTheDocument();
+    expect(screen.getByText(/No transaction or message signature is requested/i)).toBeInTheDocument();
     expect(
       screen.getByText("Network switch request (wallet_switchEthereumChain)"),
     ).toBeInTheDocument();

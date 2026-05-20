@@ -213,4 +213,44 @@ describe("live request assessment", () => {
     expect(assessment.riskLevel).toBe("routine");
     expect(assessment.userActionLabel).toBe("Answer locally");
   });
+
+  it("treats supported mainnet network switches as high-evidence review items, not blocked transactions", () => {
+    const request = normalizeLiveRequest({
+      id: "curve-switch-mainnet",
+      origin: "curve.fi",
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x1" }],
+      chainId: "eip155:1",
+    });
+
+    const decision = decisionFor(request);
+    const assessment = assessLiveRequest({ request, decision });
+
+    expect(decision.severity).toBe("warn");
+    expect(decision.issues.map((issue) => issue.title)).toContain("Network switch to mainnet");
+    expect(assessment.evidenceConfidence).toBe("high");
+    expect(assessment.evidenceReasons.join(" ")).toContain("Ethereum Mainnet");
+    expect(assessment.riskLevel).toBe("needs-review");
+    expect(assessment.riskReasons.join(" ")).toContain("No transaction or message signature");
+    expect(assessment.userActionLabel).toBe("Review, then answer locally");
+  });
+
+  it("blocks unsupported network switches while keeping evidence high because the request is understood", () => {
+    const request = normalizeLiveRequest({
+      id: "polygon-switch",
+      origin: "curve.fi",
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x89" }],
+      chainId: "eip155:137",
+    });
+
+    const assessment = assessLiveRequest({
+      request,
+      decision: decisionFor(request),
+    });
+
+    expect(assessment.evidenceConfidence).toBe("high");
+    expect(assessment.riskLevel).toBe("blocked");
+    expect(assessment.userActionLabel).toBe("Reject");
+  });
 });
