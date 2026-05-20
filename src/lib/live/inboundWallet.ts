@@ -1,6 +1,7 @@
 import { LIVE_CHAIN_CONFIGS, getLiveChainByKey } from "./chainConfig";
 import { getWalletConnectMetadata } from "./metadata";
 import { normalizeLiveRequest } from "./requestNormalizer";
+import { READ_ONLY_LIVE_RPC_METHODS } from "./rpcProxy";
 import { getIntentProofWalletConnectCore } from "./walletConnectCore";
 import type { BuildApprovedNamespacesParams } from "@walletconnect/utils";
 import type { DemoChainKey } from "../types";
@@ -85,17 +86,7 @@ const DEFAULT_EIP155_METHODS = [
   "eth_requestAccounts",
   "eth_accounts",
   "eth_chainId",
-  "eth_call",
-  "eth_estimateGas",
-  "eth_getBalance",
-  "eth_getCode",
-  "eth_getTransactionCount",
-  "eth_getBlockByNumber",
-  "eth_blockNumber",
-  "eth_gasPrice",
-  "eth_feeHistory",
-  "eth_maxPriorityFeePerGas",
-  "net_version",
+  ...READ_ONLY_LIVE_RPC_METHODS,
   "eth_sign",
   "eth_signTransaction",
   "eth_sendRawTransaction",

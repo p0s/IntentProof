@@ -8,11 +8,23 @@ export const READ_ONLY_LIVE_RPC_METHODS = new Set([
   "eth_getCode",
   "eth_getTransactionCount",
   "eth_getBlockByNumber",
+  "eth_getBlockByHash",
+  "eth_getBlockTransactionCountByNumber",
+  "eth_getBlockTransactionCountByHash",
+  "eth_getLogs",
+  "eth_getProof",
+  "eth_getStorageAt",
+  "eth_getTransactionByHash",
+  "eth_getTransactionReceipt",
   "eth_blockNumber",
   "eth_gasPrice",
   "eth_feeHistory",
   "eth_maxPriorityFeePerGas",
+  "eth_syncing",
   "net_version",
+  "net_listening",
+  "net_peerCount",
+  "web3_clientVersion",
 ]);
 
 export function isReadOnlyLiveRpcMethod(method: string) {

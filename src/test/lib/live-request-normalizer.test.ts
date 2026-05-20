@@ -130,6 +130,26 @@ describe("live request normalizer", () => {
     expect(request.unsupportedReason).toBeUndefined();
   });
 
+  it("normalizes common chain-state RPC probes without marking them unsupported", () => {
+    const logs = normalizeLiveRequest({
+      id: "logs",
+      origin: "app.uniswap.org",
+      method: "eth_getLogs",
+      params: [{ fromBlock: "latest", toBlock: "latest" }],
+      chainId: "eip155:11155111",
+    });
+    const storage = normalizeLiveRequest({
+      id: "storage",
+      origin: "app.uniswap.org",
+      method: "eth_getStorageAt",
+      params: ["0x1111111111111111111111111111111111111111", "0x0", "latest"],
+      chainId: "eip155:11155111",
+    });
+
+    expect(logs.unsupportedReason).toBeUndefined();
+    expect(storage.unsupportedReason).toBeUndefined();
+  });
+
   it("normalizes account requests without marking them unsupported", () => {
     const request = normalizeLiveRequest({
       id: "accounts",
