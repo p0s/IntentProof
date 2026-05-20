@@ -39,7 +39,7 @@ import {
 } from "../lib/intentproof";
 import { InboundWalletConnectWallet } from "../lib/live/inboundWallet";
 import { buildWalletCapabilitiesResponse } from "../lib/live/capabilities";
-import { buildLiveAccount } from "../lib/live/chainConfig";
+import { buildLiveAccount, getLiveChainByKey } from "../lib/live/chainConfig";
 import {
   BROWSER_AI_MODEL_OPTIONS,
   DEFAULT_BROWSER_AI_MODEL_ID,
@@ -180,12 +180,15 @@ function isLocalWalletCoordinationRequest(request: LiveRequest) {
 function resolveLocalWalletCoordinationRequest(
   request: LiveRequest,
   account?: LiveConnectorState["account"],
+  activeChainKey?: DemoChainKey,
 ) {
   if (request.method === "wallet_switchEthereumChain") return null;
   if (request.method === "wallet_getCapabilities") {
     return buildWalletCapabilitiesResponse(request);
   }
-  if (request.method === "eth_chainId") return request.chain.hexChainId;
+  if (request.method === "eth_chainId") {
+    return getLiveChainByKey(activeChainKey ?? request.chain.chainKey)?.hexChainId ?? request.chain.hexChainId;
+  }
   if (request.method === "eth_accounts" || request.method === "eth_requestAccounts") {
     return account?.address ? [account.address] : [];
   }
@@ -890,6 +893,7 @@ function App({ liveClients }: AppProps = {}) {
       const result = resolveLocalWalletCoordinationRequest(
         request,
         activeSignerAccount,
+        selectedNetworkChainKey,
       );
       const decisionForReceipt = evaluateLiveRequestPolicy({
         request,
@@ -958,7 +962,7 @@ function App({ liveClients }: AppProps = {}) {
           }),
         );
       });
-  }, [activeSignerAccount, firewall]);
+  }, [activeSignerAccount, firewall, selectedNetworkChainKey]);
 
   async function switchConnectedNetwork(scope: NetworkScope, source: "user" | "dapp") {
     const chain = getChainConfig(scope);
@@ -976,8 +980,13 @@ function App({ liveClients }: AppProps = {}) {
     }
     const signer = liveSignerRef.current;
     if (!imTokenState.account || !signer?.switchChain) {
+      if (activeSignerAccount) {
+        await liveInboundRef.current?.updateActiveChain?.(activeSignerAccount, scope);
+      }
       setLiveActionStatus(
-        `Network set to ${chain.label}. Connect ${signerSourceLabel(signerSource)} to switch the wallet network.`,
+        activeSignerAccount
+          ? `Network set to ${chain.label}. Connected DApps were notified; reconnect ${signerSourceLabel(signerSource)} if the final signer is out of sync.`
+          : `Network set to ${chain.label}. Connect ${signerSourceLabel(signerSource)} to switch the wallet network.`,
       );
       return;
     }
@@ -1655,6 +1664,7 @@ function App({ liveClients }: AppProps = {}) {
       const result = resolveLocalWalletCoordinationRequest(
         selectedLiveRequest,
         activeSignerAccount,
+        selectedNetworkChainKey,
       );
       try {
         await liveInboundRef.current?.approveRequest(selectedLiveRequest, result);
