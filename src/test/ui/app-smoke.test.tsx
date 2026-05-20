@@ -379,7 +379,9 @@ describe("App smoke test", () => {
     expect(screen.getByText(/merchant\.intentproof\.example/i)).toBeInTheDocument();
   });
 
-  it("restores an imToken session before pairing a routed DApp URI", async () => {
+  it("waits for a user click before connecting imToken Web for a routed DApp URI", async () => {
+    const user = userEvent.setup();
+    const signer = new FakeSignerClient({ restoreOnLoad: true });
     window.history.pushState(
       {},
       "",
@@ -388,7 +390,7 @@ describe("App smoke test", () => {
     render(
       <App
         liveClients={{
-          signer: new FakeSignerClient({ restoreOnLoad: true }),
+          signer,
           inbound: new FakeInboundClient(),
           projectId: "test-project",
         }}
@@ -397,6 +399,14 @@ describe("App smoke test", () => {
 
     expect(window.location.pathname).toBe("/wc");
     expect(window.location.search).toBe("");
+    expect(screen.getByRole("button", { name: "Connect imToken Web" })).toBeInTheDocument();
+    expect(screen.getByText("DApp route detected")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /0x7777/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );

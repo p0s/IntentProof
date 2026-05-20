@@ -16,6 +16,7 @@ interface ImTokenConnectSignerOptions {
 }
 
 const DEFAULT_IMTOKEN_REQUEST_TIMEOUT_MS = 30_000;
+const IMTOKEN_WEB_TIMEOUT_ERROR = "IntentProofImTokenWebTimeout";
 
 const FORWARDABLE_METHODS = new Set([
   "eth_sendTransaction",
@@ -91,7 +92,11 @@ export class ImTokenConnectSigner implements LiveSignerClient {
         `${timeoutContext} timed out. Finish Sign in or Create account in the imToken Web popup, then retry. If the popup stays on Processing more requests, use WalletConnect wallet while imToken Web is unavailable.`,
       );
     } catch (error) {
-      this.resetProvider();
+      if (
+        !(error instanceof Error && error.name === IMTOKEN_WEB_TIMEOUT_ERROR)
+      ) {
+        this.resetProvider();
+      }
       throw error;
     }
   }
@@ -197,7 +202,9 @@ async function withTimeout<T>(
       new Promise<T>((_, reject) => {
         timer = setTimeout(() => {
           timedOut = true;
-          reject(new Error(message));
+          const error = new Error(message);
+          error.name = IMTOKEN_WEB_TIMEOUT_ERROR;
+          reject(error);
         }, timeoutMs);
       }),
     ]);

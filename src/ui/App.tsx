@@ -648,7 +648,7 @@ function App({ liveClients }: AppProps = {}) {
   const autoVerifyStarted = useRef(false);
   const routedDappPairingStarted = useRef(false);
   const imTokenRestoreStarted = useRef(false);
-  const inboundRestoreStarted = useRef(false);
+  const inboundRestoreAccountKey = useRef<string | undefined>(undefined);
 
   const getOrCreateExternalSigner = useCallback(() => {
     if (liveClients?.signer) return liveClients.signer;
@@ -750,6 +750,9 @@ function App({ liveClients }: AppProps = {}) {
         : imTokenState.account,
     [imTokenState.account, localVaultAddress, signerSource],
   );
+  const activeSignerAccountKey = activeSignerAccount
+    ? `${activeSignerAccount.address.toLowerCase()}:${activeSignerAccount.chains.join("|")}`
+    : undefined;
   const connectedSigner: ConnectedSigner = {
     source: signerSource,
     label:
@@ -1360,7 +1363,7 @@ function App({ liveClients }: AppProps = {}) {
     liveSignerSourceRef.current = liveClients?.signer ? nextSource : undefined;
     liveInboundRef.current = undefined;
     routedDappPairingStarted.current = false;
-    inboundRestoreStarted.current = false;
+    inboundRestoreAccountKey.current = undefined;
     imTokenRestoreStarted.current = false;
     setImTokenState(defaultSignerState(nextSource, walletConnectConfigured));
     setDappState({
@@ -1429,6 +1432,7 @@ function App({ liveClients }: AppProps = {}) {
     liveSignerRef.current = undefined;
     liveSignerSourceRef.current = undefined;
     imTokenRestoreStarted.current = false;
+    inboundRestoreAccountKey.current = undefined;
     setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
     setLiveActionStatus(
       `${signerSourceLabel(signerSource)} connection cancelled. Retry or switch signer source.`,
@@ -1446,7 +1450,7 @@ function App({ liveClients }: AppProps = {}) {
     liveSignerSourceRef.current = undefined;
     liveInboundRef.current = undefined;
     imTokenRestoreStarted.current = false;
-    inboundRestoreStarted.current = false;
+    inboundRestoreAccountKey.current = undefined;
     routedDappPairingStarted.current = false;
     setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
     setDappState({
@@ -1477,6 +1481,7 @@ function App({ liveClients }: AppProps = {}) {
 
   useEffect(() => {
     if (
+      signerSource === "imtoken-web" ||
       signerSource === "local-token-core-vault" ||
       (signerSource === "walletconnect-fallback" && !walletConnectConfigured) ||
       imTokenRestoreStarted.current
@@ -1603,13 +1608,14 @@ function App({ liveClients }: AppProps = {}) {
   useEffect(() => {
     if (
       !walletConnectConfigured ||
-      inboundRestoreStarted.current ||
       dappUriSource === "route" ||
-      !activeSignerAccount
+      !activeSignerAccount ||
+      !activeSignerAccountKey ||
+      inboundRestoreAccountKey.current === activeSignerAccountKey
     ) {
       return;
     }
-    inboundRestoreStarted.current = true;
+    inboundRestoreAccountKey.current = activeSignerAccountKey;
 
     const inbound =
       liveInboundRef.current ??
@@ -1634,6 +1640,7 @@ function App({ liveClients }: AppProps = {}) {
   }, [
     dappUriSource,
     activeSignerAccount,
+    activeSignerAccountKey,
     walletConnectConfigured,
     walletConnectProjectId,
     handleIncomingLiveRequest,

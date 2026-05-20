@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requestMock } = vi.hoisted(() => ({
+const { popupDisconnectMock, requestMock } = vi.hoisted(() => ({
+  popupDisconnectMock: vi.fn(),
   requestMock: vi.fn(),
 }));
 
 vi.mock("@consenlabs/imtoken-connect", () => ({
   ImTokenWebProvider: class {
     request = requestMock;
+    popupCommunicator = {
+      disconnect: popupDisconnectMock,
+    };
   },
 }));
 
@@ -15,6 +19,7 @@ import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 
 describe("ImTokenConnectSigner", () => {
   beforeEach(() => {
+    popupDisconnectMock.mockReset();
     requestMock.mockReset();
     requestMock.mockImplementation(({ method }) => {
       if (method === "eth_requestAccounts" || method === "eth_accounts") {
@@ -96,6 +101,7 @@ describe("ImTokenConnectSigner", () => {
     await vi.advanceTimersByTimeAsync(25);
 
     await expectation;
+    expect(popupDisconnectMock).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 });

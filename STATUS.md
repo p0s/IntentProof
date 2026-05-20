@@ -161,9 +161,10 @@ _Last updated: 2026-05-20_
 ## Remaining Risks
 
 - imToken Web `/wallet` currently appears to stay on `Processing more requests`
-  even when IntentProof opens it through the SDK popup. Treat imToken Web as an
-  optional signer path and retest later; WalletConnect wallet and Local Token
-  Core Vault remain available signer paths.
+  for some sessions. IntentProof does not auto-open imToken Web on page load,
+  and timeout status does not close the popup; treat imToken Web as an optional
+  signer path and retest later. WalletConnect wallet and Local Token Core Vault
+  remain available signer paths.
 - Real WalletConnect interoperability should be tested against an actual imToken
   mobile session again after the `wallet_getCapabilities` hosted fix deploys.
   The previous live Uniswap attempt reached `Confirm in wallet` but no inbox

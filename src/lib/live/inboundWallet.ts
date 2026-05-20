@@ -65,6 +65,7 @@ type WalletKitActiveSession = {
     {
       chains?: unknown;
       methods?: unknown;
+      accounts?: unknown;
     }
   >;
 };
@@ -135,6 +136,7 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
   private pendingPoll?: number;
   private listenersBound = false;
   private walletkitContext?: Promise<WalletKitContext>;
+  private activeAccount?: LiveSessionAccount;
 
   constructor(
     projectId: string,
@@ -309,13 +311,29 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
 
   private bindWalletKitListeners(
     walletkit: WalletKitLike,
-    account: LiveSessionAccount,
     getSdkError: (key: "USER_REJECTED_METHODS") => unknown,
     buildApprovedNamespaces: (params: BuildApprovedNamespacesParams) => unknown,
   ) {
     if (this.listenersBound) return;
     this.listenersBound = true;
     walletkit.on("session_proposal", async (proposal: unknown) => {
+      const account = this.activeAccount;
+      if (!account) {
+        const typed = proposal as { id?: number };
+        if (typeof typed.id === "number") {
+          await walletkit.rejectSession({
+            id: typed.id,
+            reason: getSdkError("USER_REJECTED_METHODS"),
+          });
+        }
+        this.onState?.({
+          status: "error",
+          label: "Connect signer first",
+          detail:
+            "IntentProof could not approve the DApp session because no active signer account is selected.",
+        });
+        return;
+      }
       const typed = proposal as {
         id: number;
         params?: { requiredNamespaces?: Record<string, unknown> };
@@ -363,17 +381,21 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     });
 
     walletkit.on("session_request", (event: unknown) => {
+      const account = this.activeAccount;
       this.pushSessionRequest(event);
-      this.onState?.(
-        this.connectedState(
-          walletkit,
-          account,
-          "IntentProof received a WalletConnect request from the DApp.",
-        ),
-      );
+      if (account) {
+        this.onState?.(
+          this.connectedState(
+            walletkit,
+            account,
+            "IntentProof received a WalletConnect request from the DApp.",
+          ),
+        );
+      }
     });
 
     walletkit.on("session_delete", () => {
+      const account = this.activeAccount;
       const sessions = this.getActiveDappSessions(walletkit);
       this.onState?.({
         status: sessions.length ? "connected" : "idle",
@@ -396,6 +418,28 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     }
   }
 
+  private async emitAccountsChanged(
+    walletkit: WalletKitLike,
+    topic: string,
+    account: LiveSessionAccount,
+  ) {
+    if (!walletkit.emitSessionEvent) return;
+    await Promise.all(
+      account.chains.map((chainId) =>
+        walletkit
+          .emitSessionEvent!({
+            topic,
+            event: { name: "accountsChanged", data: [account.address] },
+            chainId,
+          })
+          .catch(() => {
+            // Some DApps disconnect before receiving account updates. Namespace
+            // sync remains the authoritative account source for later requests.
+          }),
+      ),
+    );
+  }
+
   private async syncActiveSessionNamespaces(
     walletkit: WalletKitLike,
     account: LiveSessionAccount,
@@ -403,18 +447,19 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     if (!walletkit.updateSession || !walletkit.getActiveSessions) return;
     const activeSessions = walletkit.getActiveSessions();
     await Promise.all(
-      Object.entries(activeSessions).map(([topic, session]) => {
+      Object.entries(activeSessions).map(async ([topic, session]) => {
         const existingNamespaces =
           session && typeof session === "object" && "namespaces" in session
             ? (session as { namespaces?: Record<string, unknown> }).namespaces
             : undefined;
-        return walletkit.updateSession!({
+        await walletkit.updateSession!({
           topic,
           namespaces: {
             ...(existingNamespaces ?? {}),
             eip155: buildEip155SessionNamespace(account),
           },
         });
+        await this.emitAccountsChanged(walletkit, topic, account);
       }),
     );
   }
@@ -424,7 +469,8 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
 
     const { walletkit, getSdkError, buildApprovedNamespaces } = await this.initWalletKit();
     this.walletkit = walletkit;
-    this.bindWalletKitListeners(walletkit, account, getSdkError, buildApprovedNamespaces);
+    this.activeAccount = account;
+    this.bindWalletKitListeners(walletkit, getSdkError, buildApprovedNamespaces);
     await this.syncActiveSessionNamespaces(walletkit, account);
     this.pushPendingRequests(walletkit);
     this.startPendingRequestRecovery(walletkit);
@@ -458,7 +504,8 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
     if (!this.projectId) return this.setupRequired();
     const { walletkit, getSdkError, buildApprovedNamespaces } = await this.initWalletKit();
     this.walletkit = walletkit;
-    this.bindWalletKitListeners(walletkit, account, getSdkError, buildApprovedNamespaces);
+    this.activeAccount = account;
+    this.bindWalletKitListeners(walletkit, getSdkError, buildApprovedNamespaces);
 
     await walletkit.pair({ uri });
     this.pushPendingRequests(walletkit);
@@ -475,6 +522,10 @@ export class InboundWalletConnectWallet implements LiveInboundClient {
   }
 
   async updateActiveChain(account: LiveSessionAccount, chainKey: DemoChainKey) {
+    this.activeAccount = account;
+    if (this.walletkit) {
+      await this.syncActiveSessionNamespaces(this.walletkit, account);
+    }
     if (!this.walletkit?.emitSessionEvent) return;
     const chain = getLiveChainByKey(chainKey);
     if (!chain) return;
