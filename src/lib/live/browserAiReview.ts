@@ -370,6 +370,141 @@ function validateAiTransactionReview(parsed: Record<string, unknown>): AiTransac
   };
 }
 
+function normalizeReviewText(value: string, fallback: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function userFacingFallbackReason(reason: string) {
+  if (/not a transaction review object|valid review JSON/i.test(reason)) {
+    return "The local model returned text that did not match IntentProof's structured review schema.";
+  }
+  if (/empty response/i.test(reason)) {
+    return "The local model returned an empty structured review.";
+  }
+  return reason.replace(/\s*Try again or choose another local model\.\s*/gi, "").trim();
+}
+
+function fallbackReviewFromPacket(
+  packet: AiTransactionReviewPacket,
+  reason: string,
+  modelSentence?: string,
+): AiTransactionReview {
+  const risks = [
+    ...packet.blockers,
+    ...packet.warnings,
+    ...packet.policyReasons.filter((item) =>
+      /mainnet|approval|unlimited|unknown|undecod|revert|bridge|simulation/i.test(item),
+    ),
+  ];
+  const mainRisks = Array.from(new Set(risks)).slice(0, 5);
+  const isWrite = packet.method === "eth_sendTransaction";
+  const summaryParts = [
+    `${packet.requestSource} requested ${packet.method} on ${packet.chain}.`,
+    packet.decodedFunction ? `Decoded function: ${packet.decodedFunction}.` : undefined,
+    packet.amount ? `Amount or value: ${packet.amount}.` : undefined,
+    packet.recipient ? `Recipient or target: ${packet.recipient}.` : undefined,
+    packet.spender ? `Spender: ${packet.spender}.` : undefined,
+    packet.assetDeltaSummary ? `Simulation asset changes: ${packet.assetDeltaSummary}.` : undefined,
+    packet.simulationAvailable
+      ? "Execution simulation evidence is available, but it does not prove the request is benign."
+      : "Execution simulation is not available for this packet.",
+  ].filter(Boolean);
+
+  const modelNote = modelSentence?.trim()
+    ? ` Local model note: ${modelSentence.trim()}`
+    : "";
+  const fallbackReason = userFacingFallbackReason(reason);
+
+  return {
+    headline: "Review generated from normalized evidence",
+    plainEnglishSummary: `${summaryParts.join(" ")}${modelNote} IntentProof produced this advisory fallback from the same normalized packet because ${fallbackReason}`,
+    userIntentMatch: packet.userIntent.startsWith("No explicit")
+      ? "unclear"
+      : packet.policyDecision === "BLOCK"
+        ? "does_not_match"
+        : packet.warnings.length || packet.blockers.length
+          ? "partially_matches"
+          : "matches",
+    mainRisks: mainRisks.length
+      ? mainRisks
+      : [
+          isWrite
+            ? "This is a write request. Confirm the DApp, chain, target, value, and decoded method in the connected wallet."
+            : "No additional deterministic risk was found in the normalized packet.",
+        ],
+    questionsToAskBeforeSigning: [
+      "Do you recognize this DApp and did you initiate this action?",
+      packet.isMainnet
+        ? "Are you comfortable using real mainnet assets for this request?"
+        : "Is this the intended network?",
+      packet.isUnlimitedApproval
+        ? "Do you want to grant an unlimited token approval?"
+        : "Do the amount, recipient, and method match what you expected?",
+    ],
+    whyPolicyDecisionMakesSense: normalizeReviewText(
+      packet.policyReasons[0] ?? "",
+      "IntentProof keeps deterministic policy and wallet review as the authority.",
+    ),
+    scamPatternHints: [
+      packet.isUnlimitedApproval
+        ? "Unlimited approvals can be abused later if the spender is malicious or compromised."
+        : "Unexpected target addresses, unreadable calldata, and unsolicited signature prompts are common wallet-risk signals.",
+    ],
+    confidence:
+      packet.blockers.length || packet.warnings.length || !packet.simulationAvailable
+        ? "low"
+        : "medium",
+  };
+}
+
+function normalizeOneSentenceFallback(output: string) {
+  const withoutFences = output
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!withoutFences) return undefined;
+  const firstSentence =
+    withoutFences.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() ?? withoutFences;
+  return firstSentence.length > 260
+    ? `${firstSentence.slice(0, 257).trimEnd()}...`
+    : firstSentence;
+}
+
+async function askLocalModelForOneSentenceReview(params: {
+  engine: WebLlmEngine;
+  packet: AiTransactionReviewPacket;
+  reason: string;
+}): Promise<string | undefined> {
+  try {
+    const response = await params.engine.chat.completions.create({
+      temperature: 0,
+      max_tokens: 96,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You explain wallet transaction review packets in one plain English sentence. Do not return JSON, markdown, schema text, bullets, or labels.",
+        },
+        {
+          role: "user",
+          content: [
+            "The previous JSON response was invalid.",
+            "Give exactly one plain English sentence summarizing the main thing the user should check before signing.",
+            `Previous failure: ${params.reason}`,
+            "Normalized packet:",
+            JSON.stringify(params.packet),
+          ].join("\n"),
+        },
+      ],
+    });
+    const content = response.choices?.[0]?.message?.content;
+    return content ? normalizeOneSentenceFallback(content) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function findJsonObjectCandidates(output: string): string[] {
   const candidates: string[] = [];
   let depth = 0;
@@ -415,6 +550,7 @@ export function parseAiTransactionReviewOutput(output: string): AiTransactionRev
   const trimmed = output.trim();
   const candidates = [trimmed, ...findJsonObjectCandidates(trimmed)];
   let sawJson = false;
+  let sawInvalidReviewJson = false;
 
   for (const candidate of candidates) {
     try {
@@ -423,10 +559,12 @@ export function parseAiTransactionReviewOutput(output: string): AiTransactionRev
       return validateAiTransactionReview(parsed);
     } catch (error) {
       if (error instanceof SyntaxError) continue;
+      sawInvalidReviewJson = true;
+      continue;
     }
   }
 
-  if (sawJson) {
+  if (sawJson || sawInvalidReviewJson) {
     throw new Error(
       "Local AI returned JSON, but it was not a transaction review object. Try again or choose another local model.",
     );
@@ -480,8 +618,34 @@ export async function runBrowserAiTransactionReview(params: {
     ],
   });
   const content = response.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Local AI did not return a review.");
-  return parseAiTransactionReviewOutput(content);
+  if (!content) {
+    const modelSentence = await askLocalModelForOneSentenceReview({
+      engine: engineCache.engine,
+      packet: params.packet,
+      reason: "The model returned an empty response.",
+    });
+    return fallbackReviewFromPacket(
+      params.packet,
+      "The model returned an empty response.",
+      modelSentence,
+    );
+  }
+  try {
+    return parseAiTransactionReviewOutput(content);
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : "The model output could not be parsed.";
+    const modelSentence = await askLocalModelForOneSentenceReview({
+      engine: engineCache.engine,
+      packet: params.packet,
+      reason,
+    });
+    return fallbackReviewFromPacket(
+      params.packet,
+      reason,
+      modelSentence,
+    );
+  }
 }
 
 export async function clearBrowserAiModelCache(

@@ -1890,6 +1890,17 @@
   margin: 0;
 }
 
+.simulation-boundary-note {
+  border: 1px solid rgba(216, 137, 18, 0.2);
+  border-radius: 14px;
+  background: rgba(216, 137, 18, 0.08);
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+}
+
 .signing-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1999,9 +2010,11 @@
 .browser-ai-panel {
   display: grid;
   gap: 12px;
-  border: 1px solid rgba(22, 119, 255, 0.16);
+  border: 1px solid rgba(22, 119, 255, 0.28);
   border-radius: 16px;
-  background: linear-gradient(180deg, #f7fbff 0%, var(--surface-bg) 100%);
+  background:
+    linear-gradient(180deg, rgba(247, 251, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%),
+    var(--surface-bg);
   margin: 14px 0;
   padding: 14px;
 }
@@ -2581,6 +2594,12 @@ a:hover {
   border-color: rgba(102, 167, 255, 0.24);
   background: rgba(102, 167, 255, 0.1);
   color: #8ab9ff;
+}
+
+.intentproof-shell[data-theme="dark"] .simulation-boundary-note {
+  border-color: rgba(245, 166, 35, 0.28);
+  background: rgba(245, 166, 35, 0.1);
+  color: #b8c0cc;
 }
 
 .intentproof-shell[data-theme="dark"] .batch-ai-toolbar,

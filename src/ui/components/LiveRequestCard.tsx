@@ -119,9 +119,9 @@ function simulationLabel(request: LiveRequest) {
   if (!simulation) return "not checked yet";
   if (simulation.status === "not-applicable") return "not applicable";
   if (simulation.status === "success") {
-    return `${simulation.provider} success${simulation.gasEstimate ? ` · ${simulation.gasEstimate} gas` : ""}`;
+    return `${simulation.provider} simulated: no execution revert${simulation.gasEstimate ? ` · ${simulation.gasEstimate} gas` : ""}`;
   }
-  if (simulation.status === "revert") return `${simulation.provider} revert`;
+  if (simulation.status === "revert") return `${simulation.provider} simulated: would revert`;
   if (simulation.status === "pending") return "checking...";
   return "unavailable";
 }
@@ -256,7 +256,7 @@ export function LiveRequestCard({
           <strong>{assessment.userActionLabel}</strong>
         </div>
         <div>
-          <span>Simulation</span>
+          <span>Execution simulation</span>
           <strong>{simulationLabel(request)}</strong>
         </div>
         <div>
@@ -268,6 +268,11 @@ export function LiveRequestCard({
           <strong>{request.evidence?.simulation.assetChanges.length ?? 0}</strong>
         </div>
       </div>
+      <p className="simulation-boundary-note">
+        Simulation shows whether the request is likely to execute and what it may
+        change. It is not a malicious-transaction detector and does not prove a
+        request is safe.
+      </p>
       <section className={`review-score-panel confidence-${assessment.evidenceConfidence}`}>
         <div>
           <span className="eyebrow">Evidence and risk</span>

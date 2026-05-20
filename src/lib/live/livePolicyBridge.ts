@@ -179,7 +179,7 @@ function buildReviewScore(params: {
     reasons.push(
       evidence.simulation.assetChanges.length > 0
         ? `${evidence.simulation.provider} simulation found ${evidence.simulation.assetChanges.length} asset change(s).`
-        : `${evidence.simulation.provider} simulation completed without an immediate revert.`,
+        : `${evidence.simulation.provider} execution simulation completed without an immediate revert; this does not prove the request is benign.`,
     );
   } else if (evidence?.simulation.status === "revert") {
     reasons.push(

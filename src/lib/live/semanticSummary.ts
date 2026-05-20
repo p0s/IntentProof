@@ -107,12 +107,51 @@ function decodeWordUint(data: string, index: number) {
 }
 
 function baseSummary(request: LiveRequest): LiveSemanticSummary {
+  const selectorLabel = selector(request.tx?.data);
+  const byteLength =
+    request.tx?.data && request.tx.data !== "0x"
+      ? Math.max(0, Math.floor((request.tx.data.length - 2) / 2))
+      : 0;
+  const nativeValue = formatNativeValue(request);
+  const decode = request.evidence?.decode;
+  const decodedName = decode?.functionName ?? decode?.functionSignature ?? decode?.summary;
+  const target = request.tx?.to;
+  const title =
+    request.method === "eth_sendTransaction"
+      ? decodedName ?? "Contract transaction"
+      : request.method;
+  const whatItWants =
+    request.method === "eth_sendTransaction"
+      ? [
+          decodedName
+            ? `Call ${decodedName}`
+            : `Call contract ${target ?? "with no target address"}`,
+          target ? `at ${target}` : undefined,
+          nativeValue ? `with ${nativeValue}` : "with no native token value",
+          selectorLabel ? `using selector ${selectorLabel}` : undefined,
+          byteLength > 0 ? `and ${byteLength} bytes of calldata` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" ") + "."
+      : `Handle ${request.method} from ${getProtocolSourceLabel(request)} on ${request.chain.label}.`;
+
   return {
-    title: request.method,
+    title,
     subtitle: `${getProtocolSourceLabel(request)} on ${request.chain.label}`,
-    whatItWants: "IntentProof can show the raw method, chain, and payload, but it does not have a specialized summary for this request yet.",
-    userShouldCheck: ["Confirm the DApp, chain, target address, value, and method in the connected wallet."],
-    chips: [request.chain.label, request.method],
+    whatItWants,
+    whyDappNeedsIt:
+      request.method === "eth_sendTransaction"
+        ? "IntentProof has enough data to show the target, value, selector, and payload size, but the exact contract-specific parameters are not fully decoded."
+        : "IntentProof can still show the method, chain, origin, and payload so you can decide whether the DApp request is expected.",
+    userShouldCheck: [
+      "Confirm the DApp, chain, full target address, value, selector, and method in the connected wallet.",
+      "Treat simulation as execution evidence only; it does not prove the request is benign.",
+    ],
+    chips: [
+      request.chain.label,
+      request.method,
+      decode?.status === "selector" ? "Selector known" : "Generic review",
+    ],
   };
 }
 

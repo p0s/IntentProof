@@ -240,5 +240,7 @@ export function formatRiskLevel(risk: RequestRiskLevel) {
 
 export function formatExecutionStatus(status: LiveRequestAssessment["executionStatus"]) {
   if (status === "not-applicable") return "Not applicable";
+  if (status === "success") return "Simulated no revert";
+  if (status === "revert") return "Simulated revert";
   return status[0]!.toUpperCase() + status.slice(1);
 }

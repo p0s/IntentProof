@@ -139,7 +139,7 @@ async function simulateWithTenderlyServer(
     summary:
       payload.summary ??
       (payload.status === "success"
-        ? "Tenderly simulation completed."
+        ? "Tenderly execution simulation completed without a revert. This is execution evidence, not a safety verdict."
         : "Tenderly simulation reported a transaction error."),
     gasEstimate: payload.gasEstimate,
     resultPreview: payload.resultPreview,
@@ -209,7 +209,7 @@ async function simulateWithAlchemy(
     provider: "alchemy",
     summary: assetChanges.length
       ? `Alchemy simulation found ${assetChanges.length} asset change(s).`
-      : "Alchemy simulation completed without reported asset changes.",
+      : "Alchemy execution simulation completed without reported asset changes. This is execution evidence, not a safety verdict.",
     gasEstimate: payload.result?.gasUsed,
     assetChanges,
   };

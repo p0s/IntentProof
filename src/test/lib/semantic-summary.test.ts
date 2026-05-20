@@ -130,4 +130,30 @@ describe("live semantic summaries", () => {
     expect(summary.whatItWants).toContain("Base Mainnet");
     expect(summary.chips).toContain("Network switch");
   });
+
+  it("gives unknown contract calls a useful generic summary", () => {
+    const request = normalizeLiveRequest({
+      id: "unknown-call",
+      origin: "tokenlon.im",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x2222222222222222222222222222222222222222",
+          value: "0x2386f26fc10000",
+          data: "0x36ac25a20000000000000000000000000000000000000000000000000000000000000001",
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const summary = summarizeLiveRequest(request);
+
+    expect(summary.whatItWants).toContain("0x2222222222222222222222222222222222222222");
+    expect(summary.whatItWants).toContain("selector 0x36ac25a2");
+    expect(summary.whatItWants).toContain("0.01 ETH");
+    expect(summary.whyDappNeedsIt).toMatch(/not fully decoded/i);
+    expect(summary.userShouldCheck.join(" ")).toMatch(/does not prove/i);
+    expect(summary.whatItWants).not.toMatch(/specialized summary/i);
+  });
 });

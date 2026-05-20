@@ -608,7 +608,11 @@ describe("App smoke test", () => {
     expect(screen.getByRole("button", { name: "Review all open requests with local AI" })).toBeInTheDocument();
     expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("SmolLM2");
+    const localAiModelSelect = screen.getByRole("combobox", { name: "Model" });
+    expect(localAiModelSelect).toHaveTextContent("SmolLM2");
+    expect(localAiModelSelect.closest("details")).toBeNull();
+    expect(screen.getByText(/Simulation shows whether the request is likely to execute/i)).toBeInTheDocument();
+    expect(screen.queryByText(/specialized summary/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByText("sign.example"));
     await user.click(
