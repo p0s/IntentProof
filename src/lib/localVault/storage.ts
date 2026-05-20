@@ -54,7 +54,9 @@ function withVaultStore<T>(
 }
 
 function assertNoPlaintextSecrets(record: LocalTokenCoreVaultRecord) {
-  const serialized = JSON.stringify(record).toLowerCase();
+  const metadata: Partial<LocalTokenCoreVaultRecord> = { ...record };
+  delete metadata.keystoreJson;
+  const serialized = JSON.stringify(metadata).toLowerCase();
   const forbidden = [
     "mnemonic",
     "privatekey",
@@ -65,6 +67,31 @@ function assertNoPlaintextSecrets(record: LocalTokenCoreVaultRecord) {
   const hit = forbidden.find((needle) => serialized.includes(needle));
   if (hit) {
     throw new Error(`Local vault record contains forbidden secret marker: ${hit}`);
+  }
+
+  try {
+    const keystore = JSON.parse(record.keystoreJson) as unknown;
+    const unsafeKeystore = JSON.stringify(keystore, (key, value) => {
+      const normalizedKey = key.toLowerCase();
+      if (
+        normalizedKey === "mnemonic" ||
+        normalizedKey === "privatekey" ||
+        normalizedKey === "private_key" ||
+        normalizedKey === "seedphrase" ||
+        normalizedKey === "recoveryphrase"
+      ) {
+        throw new Error(`Local vault keystore contains plaintext secret field: ${key}`);
+      }
+      return value;
+    });
+    if (!unsafeKeystore || typeof keystore !== "object") {
+      throw new Error("Local vault keystore is not structured encrypted JSON.");
+    }
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("Local vault keystore is not valid JSON.");
+    }
+    throw error;
   }
 }
 

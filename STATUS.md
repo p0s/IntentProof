@@ -163,7 +163,7 @@ _Last updated: 2026-05-19_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 37 files, 233 tests.
+- `npm run test:unit` PASS - 37 files, 235 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
 - `npm run test:ui` PASS - 4 files, 34 tests.

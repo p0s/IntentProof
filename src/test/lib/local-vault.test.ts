@@ -61,11 +61,34 @@ describe("Local Token Core Vault", () => {
     expect(JSON.stringify(saved[0]).toLowerCase()).not.toContain("test-pass");
   });
 
+  it("allows Token Core encrypted mnemonic keystore fields", async () => {
+    const tokenCoreRecord = {
+      ...record,
+      keystoreJson:
+        '{"userId":"vault","credentialId":"vault-sepolia","encryptedMnemonic":"abc","mnemonicIv":"def","identity":{"encKey":"ghi"}}',
+    };
+
+    expect(isSecretSafeLocalVaultRecord(tokenCoreRecord)).toBe(true);
+    await expect(saveLocalTokenCoreVault(tokenCoreRecord)).resolves.toBeUndefined();
+  });
+
   it("rejects records that contain plaintext secret markers", async () => {
     const unsafe = { ...record, name: "vault mnemonic backup" };
 
     expect(isSecretSafeLocalVaultRecord(unsafe)).toBe(false);
     await expect(saveLocalTokenCoreVault(unsafe)).rejects.toThrow(/forbidden secret/i);
+  });
+
+  it("rejects keystore JSON with plaintext secret field names", async () => {
+    const unsafe = {
+      ...record,
+      keystoreJson: '{"mnemonic":"abandon abandon abandon"}',
+    };
+
+    expect(isSecretSafeLocalVaultRecord(unsafe)).toBe(false);
+    await expect(saveLocalTokenCoreVault(unsafe)).rejects.toThrow(
+      /plaintext secret field/i,
+    );
   });
 
   it("does not allow BLOCK requests to sign locally", () => {
