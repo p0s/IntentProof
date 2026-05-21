@@ -43,6 +43,7 @@ import { buildLiveAccount, getLiveChainByKey } from "../lib/live/chainConfig";
 import {
   BROWSER_AI_MODEL_OPTIONS,
   DEFAULT_BROWSER_AI_MODEL_ID,
+  type BrowserAiReviewState,
   buildBatchAiReview,
   buildAiTransactionReviewPacket,
   clearBrowserAiModelCache,
@@ -107,10 +108,7 @@ import type { Address } from "viem";
 import "./App.css";
 import { DappConnectionCard } from "./components/DappConnectionCard";
 import { LocalVaultMainnetGuard } from "./components/LocalVaultMainnetGuard";
-import {
-  LiveRequestCard,
-  type BrowserAiReviewState,
-} from "./components/LiveRequestCard";
+import { LiveRequestCard } from "./components/LiveRequestCard";
 import { RequestInbox } from "./components/RequestInbox";
 import { SignerSourceSelector } from "./components/SignerSourceSelector";
 import type {
@@ -2331,6 +2329,11 @@ function App({ liveClients }: AppProps = {}) {
               }
               batchAiState={batchAiReviewState}
               onRunBatchAiReview={() => void handleRunBatchBrowserAiReview()}
+              browserAiModels={BROWSER_AI_MODEL_OPTIONS}
+              browserAiModelId={browserAiModelId}
+              browserAiState={selectedBrowserAiState}
+              onBrowserAiModelChange={setBrowserAiModelId}
+              onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
               localAiCacheState={localAiCacheState}
               onClearLocalAiCache={() => void handleClearLocalAiCache()}
             />
@@ -2352,11 +2355,6 @@ function App({ liveClients }: AppProps = {}) {
                 onWarningAcknowledged={setLiveWarningAcknowledged}
                 onForward={() => void handleForwardLiveRequest()}
                 onReject={() => void handleRejectLiveRequest()}
-                browserAiModels={BROWSER_AI_MODEL_OPTIONS}
-                browserAiModelId={browserAiModelId}
-                browserAiState={selectedBrowserAiState}
-                onBrowserAiModelChange={setBrowserAiModelId}
-                onRunBrowserAiReview={() => void handleRunBrowserAiReview()}
                 forwardTargetLabel={
                   signerSource === "local-token-core-vault"
                     ? "Local Token Core Vault"

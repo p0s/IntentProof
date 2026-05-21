@@ -995,12 +995,17 @@
   box-shadow: var(--shadow-soft);
 }
 
-.ai-briefing-card {
-  display: flex;
-  flex-wrap: wrap;
+.ai-tools-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
   gap: 10px;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+}
+
+.ai-briefing-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
   border: 1px solid rgba(22, 119, 255, 0.12);
   border-radius: 14px;
   background: rgba(22, 119, 255, 0.05);
@@ -1010,8 +1015,6 @@
 .ai-briefing-card > div {
   display: grid;
   gap: 3px;
-  min-width: min(320px, 100%);
-  flex: 1 1 320px;
 }
 
 .ai-briefing-card p {
@@ -1025,6 +1028,26 @@
   color: var(--text-soft);
   font-size: 13px;
   font-weight: 650;
+}
+
+.compact-browser-ai {
+  margin: 0;
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.compact-browser-ai .browser-ai-panel-header {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.compact-browser-ai .browser-ai-panel-header p {
+  margin-top: 2px;
+}
+
+.compact-browser-ai .browser-ai-controls {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
 }
 
 .browser-ai-cache-status {
@@ -2878,6 +2901,7 @@ a:hover {
 .intentproof-shell[data-theme="dark"] .qr-scan-panel,
 .intentproof-shell[data-theme="dark"] .review-score-panel,
 .intentproof-shell[data-theme="dark"] .browser-ai-panel,
+.intentproof-shell[data-theme="dark"] .compact-browser-ai,
 .intentproof-shell[data-theme="dark"] .browser-ai-result dl > div,
 .intentproof-shell[data-theme="dark"] .browser-ai-columns > div,
 .intentproof-shell[data-theme="dark"] .browser-ai-result details,
@@ -3193,8 +3217,13 @@ a:hover {
   }
 
   .browser-ai-panel-header,
+  .ai-tools-row,
   .browser-ai-result dl,
   .browser-ai-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-browser-ai .browser-ai-controls {
     grid-template-columns: 1fr;
   }
 

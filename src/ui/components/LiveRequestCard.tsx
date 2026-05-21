@@ -1,7 +1,3 @@
-import type {
-  AiTransactionReview,
-  BrowserAiModelOption,
-} from "../../lib/live/browserAiReview";
 import {
   assessLiveRequest,
   presentWalletRequest,
@@ -12,13 +8,6 @@ import { describeLiveRequestMethod } from "../../lib/live/requestDisplay";
 import { isReadOnlyLiveRpcMethod } from "../../lib/live/rpcProxy";
 import { MainnetGuard } from "./MainnetGuard";
 
-export interface BrowserAiReviewState {
-  status: "idle" | "loading" | "reviewing" | "ready" | "error";
-  progress?: string;
-  review?: AiTransactionReview;
-  error?: string;
-}
-
 interface LiveRequestCardProps {
   request?: LiveRequest;
   decision?: LivePolicyDecision;
@@ -26,11 +15,6 @@ interface LiveRequestCardProps {
   onWarningAcknowledged: (acknowledged: boolean) => void;
   onForward: () => void;
   onReject: () => void;
-  browserAiModels: BrowserAiModelOption[];
-  browserAiModelId: string;
-  browserAiState: BrowserAiReviewState;
-  onBrowserAiModelChange: (modelId: string) => void;
-  onRunBrowserAiReview: () => void;
   forwardTargetLabel: string;
 }
 
@@ -143,11 +127,6 @@ export function LiveRequestCard({
   onWarningAcknowledged,
   onForward,
   onReject,
-  browserAiModels,
-  browserAiModelId,
-  browserAiState,
-  onBrowserAiModelChange,
-  onRunBrowserAiReview,
   forwardTargetLabel,
 }: LiveRequestCardProps) {
   if (!request || !decision) {
@@ -282,120 +261,6 @@ export function LiveRequestCard({
           Reject request
         </button>
       </div>
-      <section className="browser-ai-panel" aria-label="Local AI review">
-        <div className="browser-ai-panel-header">
-          <div>
-            <span className="eyebrow">Optional local AI</span>
-            <strong>Review normalized packet</strong>
-            <p>
-              Runs in this browser with WebLLM. It reads decoded evidence,
-              policy reasons, warnings, and simulation summaries, not wallet
-              secrets or raw calldata as the source of truth.
-            </p>
-          </div>
-          <div className="browser-ai-controls">
-            <label>
-              <span>Model</span>
-              <select
-                value={browserAiModelId}
-                onChange={(event) => onBrowserAiModelChange(event.target.value)}
-                disabled={
-                  browserAiState.status === "loading" ||
-                  browserAiState.status === "reviewing"
-                }
-              >
-                {browserAiModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.label} · {model.approximateSize}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={onRunBrowserAiReview}
-              disabled={
-                browserAiState.status === "loading" ||
-                browserAiState.status === "reviewing"
-              }
-            >
-              {browserAiState.status === "loading"
-                ? "Loading model..."
-                : browserAiState.status === "reviewing"
-                  ? "Reviewing..."
-                  : "Run local AI check"}
-            </button>
-          </div>
-        </div>
-        <p className="muted">
-          {browserAiModels.find((model) => model.id === browserAiModelId)?.note}
-        </p>
-        {browserAiState.progress ? (
-          <p className="browser-ai-progress">{browserAiState.progress}</p>
-        ) : null}
-        {browserAiState.error ? (
-          <p className="browser-ai-error">{browserAiState.error}</p>
-        ) : null}
-        {browserAiState.review ? (
-          <div className="browser-ai-result">
-            <div>
-              <span>AI headline</span>
-              <strong>{browserAiState.review.headline}</strong>
-            </div>
-            <p>{browserAiState.review.plainEnglishSummary}</p>
-            <dl>
-              <div>
-                <dt>Intent match</dt>
-                <dd>{browserAiState.review.userIntentMatch.replaceAll("_", " ")}</dd>
-              </div>
-              <div>
-                <dt>AI confidence</dt>
-                <dd>{browserAiState.review.confidence}</dd>
-              </div>
-            </dl>
-            <div className="browser-ai-columns">
-              <div>
-                <strong>Main risks</strong>
-                <ul>
-                  {browserAiState.review.mainRisks.length ? (
-                    browserAiState.review.mainRisks.map((risk) => (
-                      <li key={risk}>{risk}</li>
-                    ))
-                  ) : (
-                    <li>No additional risks noted by the local model.</li>
-                  )}
-                </ul>
-              </div>
-              <div>
-                <strong>Ask before signing</strong>
-                <ul>
-                  {browserAiState.review.questionsToAskBeforeSigning.length ? (
-                    browserAiState.review.questionsToAskBeforeSigning.map((question) => (
-                      <li key={question}>{question}</li>
-                    ))
-                  ) : (
-                    <li>No extra questions suggested.</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-            <details>
-              <summary>Policy reasoning and scam-pattern hints</summary>
-              <p>{browserAiState.review.whyPolicyDecisionMakesSense}</p>
-              <ul>
-                {browserAiState.review.scamPatternHints.length ? (
-                  browserAiState.review.scamPatternHints.map((hint) => (
-                    <li key={hint}>{hint}</li>
-                  ))
-                ) : (
-                  <li>No specific pattern hints found.</li>
-                )}
-              </ul>
-            </details>
-          </div>
-        ) : null}
-      </section>
       <details className="advanced-evidence">
         <summary>Advanced evidence</summary>
         <div className="facts-grid">

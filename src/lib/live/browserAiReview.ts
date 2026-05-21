@@ -73,6 +73,13 @@ export interface BrowserAiModelOption {
   note: string;
 }
 
+export interface BrowserAiReviewState {
+  status: "idle" | "loading" | "reviewing" | "ready" | "error";
+  progress?: string;
+  review?: AiTransactionReview;
+  error?: string;
+}
+
 export interface BrowserAiProgress {
   text?: string;
   progress?: number;
@@ -103,7 +110,7 @@ export const BROWSER_AI_MODEL_OPTIONS: BrowserAiModelOption[] = [
     id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
     label: "Qwen2.5 0.5B",
     approximateSize: "~945 MB",
-    note: "Largest option kept under the 1 GB local-model budget.",
+    note: "More context for detailed request summaries.",
   },
 ];
 

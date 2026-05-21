@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 
-import type { BatchAiReview } from "../../lib/live/browserAiReview";
+import type {
+  BatchAiReview,
+  BrowserAiModelOption,
+  BrowserAiReviewState,
+} from "../../lib/live/browserAiReview";
 import {
   assessLiveRequest,
   formatExecutionStatus,
@@ -17,6 +21,11 @@ interface RequestInboxProps {
   onSelect: (requestId: string) => void;
   batchAiState: BatchAiReviewState;
   onRunBatchAiReview: () => void;
+  browserAiModels: BrowserAiModelOption[];
+  browserAiModelId: string;
+  browserAiState: BrowserAiReviewState;
+  onBrowserAiModelChange: (modelId: string) => void;
+  onRunBrowserAiReview: () => void;
   localAiCacheState: LocalAiCacheState;
   onClearLocalAiCache: () => void;
 }
@@ -41,6 +50,11 @@ export function RequestInbox({
   onSelect,
   batchAiState,
   onRunBatchAiReview,
+  browserAiModels,
+  browserAiModelId,
+  browserAiState,
+  onBrowserAiModelChange,
+  onRunBrowserAiReview,
   localAiCacheState,
   onClearLocalAiCache,
 }: RequestInboxProps) {
@@ -95,42 +109,152 @@ export function RequestInbox({
           </button>
         ))}
       </div>
-      <div className="ai-briefing-card" aria-label="AI Inbox Briefing">
-        <div>
-          <span className="eyebrow">AI Inbox Briefing</span>
-          <strong>
-            {batchAiState.review?.overallHeadline ?? "Review open requests with local AI"}
-          </strong>
-          <p>
-            {batchAiState.review?.overallSummary ??
-              "Runs locally on normalized request packets. Advisory only; forwarding gates do not change."}
-          </p>
+      <div className="ai-tools-row">
+        <div className="ai-briefing-card" aria-label="AI Inbox Briefing">
+          <div>
+            <span className="eyebrow">AI Inbox Briefing</span>
+            <strong>
+              {batchAiState.review?.overallHeadline ?? "Review open requests"}
+            </strong>
+            <p>
+              {batchAiState.review?.overallSummary ??
+                "Local advisory review for action-required packets."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={onRunBatchAiReview}
+            disabled={
+              requests.length === 0 ||
+              batchAiState.status === "loading" ||
+              localAiCacheState.status === "clearing"
+            }
+          >
+            {batchAiState.status === "loading"
+              ? "Reviewing..."
+              : "Review all action-required requests"}
+          </button>
+          <button
+            type="button"
+            className="button-tertiary"
+            onClick={onClearLocalAiCache}
+            disabled={localAiCacheState.status === "clearing"}
+          >
+            {localAiCacheState.status === "clearing"
+              ? "Deleting..."
+              : "Delete local AI model files"}
+          </button>
+          {batchAiState.progress ? <span>{batchAiState.progress}</span> : null}
         </div>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={onRunBatchAiReview}
-          disabled={
-            requests.length === 0 ||
-            batchAiState.status === "loading" ||
-            localAiCacheState.status === "clearing"
-          }
-        >
-          {batchAiState.status === "loading"
-            ? "Reviewing open requests..."
-            : "Review all action-required requests"}
-        </button>
-        <button
-          type="button"
-          className="button-tertiary"
-          onClick={onClearLocalAiCache}
-          disabled={localAiCacheState.status === "clearing"}
-        >
-          {localAiCacheState.status === "clearing"
-            ? "Deleting local AI files..."
-            : "Delete local AI model files"}
-        </button>
-        {batchAiState.progress ? <span>{batchAiState.progress}</span> : null}
+        <div className="browser-ai-panel compact-browser-ai" aria-label="Local AI review">
+          <div className="browser-ai-panel-header">
+            <div>
+              <span className="eyebrow">Local AI</span>
+              <strong>Selected request</strong>
+              <p>Runs in this browser on the normalized request packet.</p>
+            </div>
+            <div className="browser-ai-controls">
+              <label>
+                <span>Model</span>
+                <select
+                  value={browserAiModelId}
+                  onChange={(event) => onBrowserAiModelChange(event.target.value)}
+                  disabled={
+                    browserAiState.status === "loading" ||
+                    browserAiState.status === "reviewing"
+                  }
+                >
+                  {browserAiModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.label} · {model.approximateSize}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={onRunBrowserAiReview}
+                disabled={
+                  !selectedRequestId ||
+                  browserAiState.status === "loading" ||
+                  browserAiState.status === "reviewing"
+                }
+              >
+                {browserAiState.status === "loading"
+                  ? "Loading..."
+                  : browserAiState.status === "reviewing"
+                    ? "Reviewing..."
+                    : "Run local AI check"}
+              </button>
+            </div>
+          </div>
+          {browserAiState.progress ? (
+            <p className="browser-ai-progress">{browserAiState.progress}</p>
+          ) : null}
+          {browserAiState.error ? (
+            <p className="browser-ai-error">{browserAiState.error}</p>
+          ) : null}
+          {browserAiState.review ? (
+            <div className="browser-ai-result">
+              <div>
+                <span>AI headline</span>
+                <strong>{browserAiState.review.headline}</strong>
+              </div>
+              <p>{browserAiState.review.plainEnglishSummary}</p>
+              <dl>
+                <div>
+                  <dt>Intent match</dt>
+                  <dd>{browserAiState.review.userIntentMatch.replaceAll("_", " ")}</dd>
+                </div>
+                <div>
+                  <dt>AI confidence</dt>
+                  <dd>{browserAiState.review.confidence}</dd>
+                </div>
+              </dl>
+              <div className="browser-ai-columns">
+                <div>
+                  <strong>Main risks</strong>
+                  <ul>
+                    {browserAiState.review.mainRisks.length ? (
+                      browserAiState.review.mainRisks.map((risk) => (
+                        <li key={risk}>{risk}</li>
+                      ))
+                    ) : (
+                      <li>No additional risks noted by the local model.</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <strong>Ask before signing</strong>
+                  <ul>
+                    {browserAiState.review.questionsToAskBeforeSigning.length ? (
+                      browserAiState.review.questionsToAskBeforeSigning.map((question) => (
+                        <li key={question}>{question}</li>
+                      ))
+                    ) : (
+                      <li>No extra questions suggested.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+              <details>
+                <summary>Policy reasoning and scam-pattern hints</summary>
+                <p>{browserAiState.review.whyPolicyDecisionMakesSense}</p>
+                <ul>
+                  {browserAiState.review.scamPatternHints.length ? (
+                    browserAiState.review.scamPatternHints.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))
+                  ) : (
+                    <li>No specific pattern hints found.</li>
+                  )}
+                </ul>
+              </details>
+            </div>
+          ) : null}
+        </div>
       </div>
       {localAiCacheState.message ? (
         <p

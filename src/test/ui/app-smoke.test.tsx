@@ -609,11 +609,17 @@ describe("App smoke test", () => {
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Review all action-required requests" })).toBeInTheDocument();
+    const requestInbox = screen.getByRole("heading", { name: "Request Inbox" }).closest("section");
+    expect(requestInbox).not.toBeNull();
+    expect(within(requestInbox as HTMLElement).getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
     const localAiModelSelect = screen.getByRole("combobox", { name: "Model" });
     expect(localAiModelSelect).toHaveTextContent("SmolLM2");
     expect(localAiModelSelect.closest("details")).toBeNull();
+    expect(screen.queryByText(/Largest option kept under the 1 GB local-model budget/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Optional local AI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review normalized packet")).not.toBeInTheDocument();
     expect(screen.getByText(/Simulation shows whether the request is likely to execute/i)).toBeInTheDocument();
     expect(screen.queryByText(/specialized summary/i)).not.toBeInTheDocument();
 
