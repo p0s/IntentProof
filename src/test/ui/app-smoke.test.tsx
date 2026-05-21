@@ -107,8 +107,10 @@ import {
 } from "../../lib/live/fakeLiveClients";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import {
+  buildUniversalRouterEthToUsdtCalldata,
   buildUniversalRouterUnsupportedV4Calldata,
   buildUniversalRouterV3ExactInCalldata,
+  ETH_TO_USDT_AMOUNT_IN,
 } from "../lib/uniswap-universal-router-fixtures";
 import App from "../../ui/App";
 
@@ -614,12 +616,13 @@ describe("App smoke test", () => {
     expect(screen.getByRole("button", { name: "Review inbox" })).toBeInTheDocument();
     const requestInbox = screen.getByRole("heading", { name: "Request Inbox" }).closest("section");
     expect(requestInbox).not.toBeNull();
-    expect(within(requestInbox as HTMLElement).getByLabelText("Local AI review")).toBeInTheDocument();
-    expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
+    expect(within(requestInbox as HTMLElement).getByLabelText("AI briefing")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI briefing")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review selected" })).toBeInTheDocument();
+    await user.click(screen.getByText("AI settings"));
     const localAiModelSelect = screen.getByRole("combobox", { name: "Model" });
     expect(localAiModelSelect).toHaveTextContent("SmolLM2");
-    expect(localAiModelSelect.closest("details")).toBeNull();
+    expect(localAiModelSelect.closest("details")).not.toBeNull();
     expect(screen.queryByText(/Largest option kept under the 1 GB local-model budget/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Optional local AI")).not.toBeInTheDocument();
     expect(screen.queryByText("Review normalized packet")).not.toBeInTheDocument();
@@ -661,9 +664,11 @@ describe("App smoke test", () => {
     );
 
     expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
+    await user.click(screen.getByText("AI settings"));
     await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
     await user.click(screen.getByRole("button", { name: "Review selected" }));
 
+    await user.click(await screen.findByText("Local AI explanation"));
     expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
     expect(
       screen.getByText(/local model reviewed the decoded IntentProof packet/i),
@@ -758,7 +763,7 @@ describe("App smoke test", () => {
         name: /Uniswap.*Swap 10 USDC.*Needs review.*Ethereum Mainnet/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Swap 10 USDC.*eth_sendTransaction/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Swap 10 USDC/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Decoded Universal Router route")).toBeInTheDocument();
     expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
@@ -767,6 +772,53 @@ describe("App smoke test", () => {
     expect(
       screen.getAllByText("Universal Router command stream decoded into route evidence.").length,
     ).toBeGreaterThan(0);
+  });
+
+  it("renders a Uniswap ETH to USDT request as a wallet approval", () => {
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          projectId: "test-project",
+          initialRequests: [
+            normalizeLiveRequest({
+              id: "uniswap-eth-usdt",
+              origin: "Uniswap",
+              method: "eth_sendTransaction",
+              params: [
+                {
+                  from: "0x7777777777777777777777777777777777777777",
+                  to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+                  value: `0x${ETH_TO_USDT_AMOUNT_IN.toString(16)}`,
+                  data: buildUniversalRouterEthToUsdtCalldata(),
+                  chainId: "0x1",
+                },
+              ],
+            }),
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: /Uniswap.*Swap 0\.000597 ETH → USDT.*Needs review.*Ethereum Mainnet/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Sends 0.000597 ETH · Minimum received 1.233192 USDT").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Request a Uniswap swap through Universal Router.")).toBeInTheDocument();
+    expect(screen.getByText("Router wraps ETH to WETH before the swap")).toBeInTheDocument();
+    expect(screen.getByText("Swaps WETH → USDT")).toBeInTheDocument();
+    expect(screen.getByText("Minimum received: 1.233192 USDT")).toBeInTheDocument();
+    expect(screen.queryByText(/encoded token amount/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /Uniswap.*Swap 0\.000597 ETH → USDT.*Needs review.*Ethereum Mainnet/i,
+      }),
+    ).not.toHaveTextContent(/0xdac1/i);
+    expect(screen.getByText("Advanced evidence")).toBeInTheDocument();
   });
 
   it("presents Uniswap V4 partial decode as recognized wallet review", () => {

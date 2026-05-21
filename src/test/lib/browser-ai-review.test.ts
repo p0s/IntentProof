@@ -71,6 +71,8 @@ describe("browser AI transaction review", () => {
     expect(packet.decodedFunction).toBe("transfer");
     expect(packet.hasExplicitUserIntent).toBe(false);
     expect(packet.understanding.actionKind).toBe("transfer");
+    expect(packet.viewModel.rowTitle).toBeTruthy();
+    expect(packet.viewModel.whatCanChange.length).toBeGreaterThan(0);
     expect(packet.isUnlimitedApproval).toBe(false);
     expect(packet.policyDecision).toBe(decision.label);
     expect(JSON.stringify(packet)).not.toContain(request!.tx!.data!.slice(10));

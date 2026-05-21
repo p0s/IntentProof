@@ -7,6 +7,10 @@ import {
 } from "viem";
 
 import { getChainConfig, getChainKeyById } from "../chains";
+import {
+  formatTokenQuantity,
+  getKnownTokenMetadata,
+} from "../tokenMetadata";
 import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
 import type { DemoChainKey } from "../types";
 import { getKnownProtocolContractLabel, getProtocolSourceLabel } from "./protocolProfiles";
@@ -118,27 +122,18 @@ function chainKeyFromChainId(value: unknown): DemoChainKey | undefined {
 }
 
 function tokenInfo(chainKey: DemoChainKey, address?: string) {
-  if (!address) return undefined;
-  const lower = address.toLowerCase();
-  const chain = getChainConfig(chainKey);
-  if (chain.wrappedNativeToken.address.toLowerCase() === lower) {
-    return chain.wrappedNativeToken;
-  }
-  return chain.tokenPresets.find((token) => token.address.toLowerCase() === lower);
+  return getKnownTokenMetadata(chainKey, address);
 }
 
 function tokenLabel(chainKey: DemoChainKey, address?: string) {
-  return tokenInfo(chainKey, address)?.symbol ?? shortAddress(address);
+  return tokenInfo(chainKey, address)?.symbol ?? `unknown token ${shortAddress(address)}`;
 }
 
 function formatTokenAmount(chainKey: DemoChainKey, address: string | undefined, amount?: bigint) {
   if (amount === undefined) return undefined;
   const token = tokenInfo(chainKey, address);
-  if (!token) return "encoded token amount";
-  const exact = formatUnits(amount, token.decimals);
-  const [whole, fraction = ""] = exact.split(".");
-  if (!fraction) return `${whole} ${token.symbol}`;
-  return `${`${whole}.${fraction.slice(0, 6)}`.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")} ${token.symbol}`;
+  if (!token) return `unknown token ${shortAddress(address)}`;
+  return formatTokenQuantity({ amount, metadata: token });
 }
 
 function formatNativeValue(request: LiveRequest) {

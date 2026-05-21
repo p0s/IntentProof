@@ -3,6 +3,7 @@ import { formatUnits } from "viem";
 import { getChainConfig } from "../chains";
 import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
 import type { TransactionUnderstanding } from "../txUnderstanding/types";
+import { buildWalletRequestViewModel } from "./walletRequestViewModel";
 import type {
   LiveAssetChangeEvidence,
   LivePolicyDecision,
@@ -41,6 +42,13 @@ export interface AiTransactionReviewPacket {
   simulationAvailable: boolean;
   assetDeltaSummary?: string;
   understanding: Omit<TransactionUnderstanding, "advanced">;
+  viewModel: {
+    rowTitle: string;
+    whatItWants: string;
+    whatCanChange: string[];
+    resultTitle: string;
+    resultBody: string;
+  };
 }
 
 export interface AiTransactionReview {
@@ -278,6 +286,7 @@ export function buildAiTransactionReviewPacket(params: {
 }): AiTransactionReviewPacket {
   const { request, decision } = params;
   const understanding = understandLiveRequest(request);
+  const viewModel = buildWalletRequestViewModel({ request, decision });
   const explicitIntent = params.userIntent?.trim();
   const selector = calldataSelector(request.tx?.data);
   const warnings = issueText(decision, "warn");
@@ -351,6 +360,13 @@ export function buildAiTransactionReviewPacket(params: {
       userChecks: understanding.userChecks,
       simulationStatus: understanding.simulationStatus,
       evidence: understanding.evidence,
+    },
+    viewModel: {
+      rowTitle: viewModel.rowTitle,
+      whatItWants: viewModel.whatItWants,
+      whatCanChange: viewModel.whatCanChange,
+      resultTitle: viewModel.resultTitle,
+      resultBody: viewModel.resultBody,
     },
   };
 }
@@ -444,7 +460,7 @@ function isUniswapPartialV4(packet: AiTransactionReviewPacket) {
   );
 }
 
-function normalizeAiReviewForPacket(
+export function sanitizeAiReviewForUnsignedRequest(
   review: AiTransactionReview,
   packet: AiTransactionReviewPacket,
 ): AiTransactionReview {
@@ -459,7 +475,9 @@ function normalizeAiReviewForPacket(
     headline: sanitizeUnsignedRequestLanguage(
       partialV4
         ? `Uniswap requested a V4 swap on ${packet.chain}`
-        : review.headline,
+        : review.headline.length > 90 && packet.viewModel.rowTitle
+          ? packet.viewModel.rowTitle
+          : review.headline,
     ),
     plainEnglishSummary: sanitizeUnsignedRequestLanguage(
       `${noIntent ? "No explicit user intent was provided. " : ""}${review.plainEnglishSummary}`,
@@ -771,14 +789,14 @@ export async function runBrowserAiTransactionReview(params: {
       packet: params.packet,
       reason: "The model returned an empty response.",
     });
-    return normalizeAiReviewForPacket(fallbackReviewFromPacket(
+    return sanitizeAiReviewForUnsignedRequest(fallbackReviewFromPacket(
       params.packet,
       "The model returned an empty response.",
       modelSentence,
     ), params.packet);
   }
   try {
-    return normalizeAiReviewForPacket(parseAiTransactionReviewOutput(content), params.packet);
+    return sanitizeAiReviewForUnsignedRequest(parseAiTransactionReviewOutput(content), params.packet);
   } catch (error) {
     const reason =
       error instanceof Error ? error.message : "The model output could not be parsed.";
@@ -787,7 +805,7 @@ export async function runBrowserAiTransactionReview(params: {
       packet: params.packet,
       reason,
     });
-    return normalizeAiReviewForPacket(fallbackReviewFromPacket(
+    return sanitizeAiReviewForUnsignedRequest(fallbackReviewFromPacket(
       params.packet,
       reason,
       modelSentence,

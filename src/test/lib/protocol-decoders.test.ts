@@ -8,8 +8,10 @@ import {
 } from "../../lib/txUnderstanding/protocolDecoders";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import {
+  buildUniversalRouterEthToUsdtCalldata,
   buildUniversalRouterUnsupportedV4Calldata,
   buildUniversalRouterV3ExactInCalldata,
+  ETH_TO_USDT_AMOUNT_IN,
 } from "./uniswap-universal-router-fixtures";
 
 describe("protocol decoders", () => {
@@ -53,6 +55,35 @@ describe("protocol decoders", () => {
       actionKind: "swap",
       riskLevel: "needs-review",
     });
+  });
+
+  it("formats a native ETH into WETH to USDT route without raw addresses", () => {
+    const request = normalizeLiveRequest({
+      id: "eth-usdt",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: `0x${ETH_TO_USDT_AMOUNT_IN.toString(16)}`,
+          data: buildUniversalRouterEthToUsdtCalldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const decoded = decodeUniswapUniversalRouterRequest(request);
+
+    expect(decoded).toMatchObject({
+      decodeQuality: "full-protocol-decode",
+      tokenIn: "WETH",
+      tokenOut: "USDT",
+      amountIn: "0.000597 WETH",
+      minAmountOut: "1.233192 USDT",
+    });
+    expect(decoded?.actionTitle).toBe("Swap 0.000597 ETH → USDT");
+    expect(decoded?.userSummary).not.toMatch(/encoded token amount|0xdac1/i);
   });
 
   it("decodes Lido, ERC-20 approval, and signatures through dedicated decoders", () => {

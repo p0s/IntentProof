@@ -80,7 +80,13 @@ function sessionInitials(name: string) {
 
 function sessionNetworkCopy(session: LiveDappSession) {
   if (!session.chains.length) return "Network pending";
-  if (session.chains.length === 1) return session.chains[0].replace("eip155:", "Chain ");
+  const labels: Record<string, string> = {
+    "eip155:1": "Ethereum Mainnet",
+    "eip155:8453": "Base Mainnet",
+    "eip155:11155111": "Ethereum Sepolia",
+    "eip155:84532": "Base Sepolia",
+  };
+  if (session.chains.length === 1) return labels[session.chains[0]] ?? session.chains[0].replace("eip155:", "Chain ");
   return `${session.chains.length} networks`;
 }
 
@@ -240,7 +246,7 @@ export function DappConnectionCard({
       <div className="live-connect-heading">
         <div>
           <span className="eyebrow">DApp connection</span>
-          <h2>Connect a DApp</h2>
+          <h2>{hasConnectedDapps && !showConnectionSetup ? "Connected DApp" : "Connect a DApp"}</h2>
         </div>
         <span
           className={`connection-status-pill ${state.status}`}
@@ -250,24 +256,22 @@ export function DappConnectionCard({
           {statusText(state.status)}
         </span>
       </div>
-      <p>
-        {hasRoutedUri
-          ? "Connect the selected signer here to approve the routed session and start receiving requests."
-          : "Scan a DApp QR or paste its WalletConnect URI. IntentProof reviews requests before the selected signer continues."}
-      </p>
-      {shouldShowStatusDetail ? (
+      {showConnectionSetup ? (
+        <p>
+          {hasRoutedUri
+            ? "Connect the selected signer here to approve the routed session and start receiving requests."
+            : "Scan a DApp QR or paste its WalletConnect URI."}
+        </p>
+      ) : null}
+      {shouldShowStatusDetail && showConnectionSetup ? (
         <p className={`connection-status-detail ${state.status}`}>{state.detail}</p>
       ) : null}
       {connectedSessions.length ? (
         <section className="connected-dapps-panel" aria-label="Connected DApps">
           <div className="connected-dapps-heading">
             <div>
-              <strong>Connected DApps</strong>
-              <span>
-                {connectedSessions.length === 1
-                  ? "IntentProof is listening for this DApp."
-                  : `IntentProof is listening for ${connectedSessions.length} DApps.`}
-              </span>
+              <strong>{connectedSessions.length === 1 ? "Connected DApp" : "Connected DApps"}</strong>
+              <span>Listening for requests</span>
             </div>
             <button
               type="button"

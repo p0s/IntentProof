@@ -2,6 +2,10 @@ import { formatUnits, type Address } from "viem";
 
 import { getChainConfig } from "../../chains";
 import type { LiveRequest } from "../../live/types";
+import {
+  formatTokenQuantity,
+  getKnownTokenMetadata,
+} from "../../tokenMetadata";
 import type { DemoChainKey } from "../../types";
 
 export const MAX_UINT256_DECIMAL =
@@ -20,17 +24,11 @@ export function shortAddress(address?: string) {
 }
 
 export function tokenInfo(chainKey: DemoChainKey, address?: string) {
-  if (!address) return undefined;
-  const lower = address.toLowerCase();
-  const chain = getChainConfig(chainKey);
-  if (chain.wrappedNativeToken.address.toLowerCase() === lower) {
-    return chain.wrappedNativeToken;
-  }
-  return chain.tokenPresets.find((token) => token.address.toLowerCase() === lower);
+  return getKnownTokenMetadata(chainKey, address);
 }
 
 export function tokenLabel(chainKey: DemoChainKey, address?: string) {
-  return tokenInfo(chainKey, address)?.symbol ?? shortAddress(address);
+  return tokenInfo(chainKey, address)?.symbol ?? `unknown token ${shortAddress(address)}`;
 }
 
 function trimDecimal(value: string) {
@@ -58,10 +56,8 @@ export function formatTokenAmount(
 ) {
   if (amount === undefined) return undefined;
   const token = tokenInfo(chainKey, address);
-  if (!token) return `${amount.toString()} encoded token amount`;
-  const maxFractionDigits =
-    token.symbol === "USDC" || token.symbol === "USDT" ? 6 : Math.min(token.decimals, 6);
-  return `${formatDecimalForMainUi(amount, token.decimals, maxFractionDigits)} ${token.symbol}`;
+  if (!token) return `unknown token ${shortAddress(address)}`;
+  return formatTokenQuantity({ amount, metadata: token });
 }
 
 export function formatTokenAmountExact(
@@ -71,8 +67,8 @@ export function formatTokenAmountExact(
 ) {
   if (amount === undefined) return undefined;
   const token = tokenInfo(chainKey, address);
-  if (!token) return `${amount.toString()} encoded token amount`;
-  return `${formatUnits(amount, token.decimals)} ${token.symbol}`;
+  if (!token) return `${amount.toString()} raw units of unknown token ${shortAddress(address)}`;
+  return formatTokenQuantity({ amount, metadata: token, exact: true });
 }
 
 export function formatNativeValue(request: LiveRequest) {

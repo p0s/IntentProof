@@ -1013,6 +1013,32 @@
   align-items: end;
 }
 
+.compact-ai-briefing .ai-review-topline {
+  grid-template-columns: 1fr;
+}
+
+.compact-ai-briefing .ai-review-topline strong {
+  font-size: 15px;
+}
+
+.ai-settings-details {
+  border: 1px solid rgba(118, 124, 135, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 8px 10px;
+}
+
+.ai-settings-details summary {
+  cursor: pointer;
+  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.ai-settings-details .ai-model-field {
+  margin-top: 8px;
+}
+
 .ai-review-topline > div {
   display: grid;
   gap: 4px;
@@ -1250,6 +1276,12 @@
   color: #9a620d;
 }
 
+.request-row-status.tone-review {
+  border-color: rgba(216, 137, 18, 0.28);
+  background: rgba(216, 137, 18, 0.1);
+  color: #9a620d;
+}
+
 .request-row-status.tone-danger {
   border-color: rgba(235, 47, 59, 0.24);
   background: rgba(235, 47, 59, 0.08);
@@ -1257,6 +1289,7 @@
 }
 
 .request-row-status.tone-neutral,
+.request-row-status.tone-routine,
 .chain-badge {
   border-color: rgba(22, 119, 255, 0.16);
   background: rgba(22, 119, 255, 0.06);
@@ -2248,7 +2281,8 @@
   background: rgba(22, 163, 111, 0.06);
 }
 
-.intentproof-result.tone-warning {
+.intentproof-result.tone-warning,
+.intentproof-result.tone-review {
   border-color: rgba(216, 137, 18, 0.26);
   background: rgba(216, 137, 18, 0.08);
 }

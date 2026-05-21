@@ -28,7 +28,8 @@ describe("live semantic summaries", () => {
 
     expect(summary.title).toContain("Swap 10 USDC");
     expect(summary.whatItWants).toMatch(/Swap/i);
-    expect(summary.whatItWants).toMatch(/USDC|WETH|encoded token amount/i);
+    expect(summary.title).toMatch(/USDC|WETH/i);
+    expect(summary.whatItWants).not.toMatch(/encoded token amount/i);
     expect(summary.whatItWants).not.toMatch(/raw units/i);
     expect(summary.chips).toContain("Uniswap");
   });

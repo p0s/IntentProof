@@ -1,9 +1,9 @@
 import {
   assessLiveRequest,
-  presentWalletRequest,
 } from "../../lib/live/requestAssessment";
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
+import { buildWalletRequestViewModel } from "../../lib/live/walletRequestViewModel";
 import { describeLiveRequestMethod } from "../../lib/live/requestDisplay";
 import { isReadOnlyLiveRpcMethod } from "../../lib/live/rpcProxy";
 import { understandLiveRequest } from "../../lib/txUnderstanding/understandLiveRequest";
@@ -131,19 +131,6 @@ function assetDeltaLabel(request: LiveRequest, understanding: ReturnType<typeof 
   return understanding.simulationAssetDelta?.summary ?? "No parsed asset changes";
 }
 
-function resultHeadline(
-  presentationLabel: string,
-  understanding: ReturnType<typeof understandLiveRequest>,
-) {
-  if (
-    understanding.protocolConfidence === "known" &&
-    understanding.riskLevel === "needs-review"
-  ) {
-    return `Recognized ${understanding.protocolName} request · Needs review`;
-  }
-  return presentationLabel;
-}
-
 export function LiveRequestCard({
   request,
   decision,
@@ -172,35 +159,26 @@ export function LiveRequestCard({
     : request.chain.label;
   const coordinationRequest = isWalletCoordinationRequest(request);
   const assessment = assessLiveRequest({ request, decision });
-  const presentation = presentWalletRequest({ request, decision });
   const semanticSummary = summarizeLiveRequest(request);
   const understanding = understandLiveRequest(request);
-  const intentProofResultHeadline = resultHeadline(
-    presentation.statusLabel,
-    understanding,
-  );
-  const forwardButtonLabel = coordinationRequest
-    ? "Answer locally"
-    : forwardTargetLabel === "Local Token Core Vault"
-      ? "Sign with Local Token Core Vault"
-      : forwardTargetLabel === "imToken Web"
-        ? "Forward to imToken Web"
-        : forwardTargetLabel === "imToken"
-      ? "Forward to imToken"
-      : "Forward to connected wallet";
+  const viewModel = buildWalletRequestViewModel({
+    request,
+    decision,
+    forwardTargetLabel,
+  });
 
   return (
     <section className="surface live-request-card">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{assessment.sourceLabel}</span>
-          <h2>{semanticSummary.title}</h2>
+          <span className="eyebrow">{viewModel.dappLabel}</span>
+          <h2>{viewModel.rowTitle}</h2>
         </div>
         <div className="compact-label-row">
-          <span className={`request-row-status tone-${presentation.statusTone}`}>
-            {presentation.statusLabel}
+          <span className={`request-row-status tone-${viewModel.statusTone}`}>
+            {viewModel.statusLabel}
           </span>
-          <span className="chain-badge">{chainLabel}</span>
+          <span className="chain-badge">{viewModel.chainBadge}</span>
           {request.chain.environment === "mainnet" ? (
             <span className="mainnet-compact-badge">Mainnet · real assets</span>
           ) : null}
@@ -208,94 +186,26 @@ export function LiveRequestCard({
       </div>
       <section className="request-detail-hero">
         <span className="eyebrow">What this request wants</span>
-        <strong>{semanticSummary.whatItWants}</strong>
-        {semanticSummary.whyDappNeedsIt ? <p>{semanticSummary.whyDappNeedsIt}</p> : null}
+        <strong>{viewModel.whatItWants}</strong>
+        <p>{viewModel.impactLine}</p>
         <div className="policy-chip-row">
-          {semanticSummary.chips.map((chip) => (
+          {semanticSummary.chips.slice(0, 4).map((chip) => (
             <span key={chip}>{chip}</span>
           ))}
         </div>
       </section>
       <MainnetGuard request={request} />
       <section className="impact-grid" aria-label="What can change">
-        <div>
-          <span>What can change</span>
-          <strong>{presentation.impactLine}</strong>
-        </div>
-        {understanding.valueSummary ? (
-          <div>
-            <span>Native value</span>
-            <strong>Sends {understanding.valueSummary}</strong>
+        {viewModel.whatCanChange.map((item) => (
+          <div key={item}>
+            <span>What can change</span>
+            <strong>{item}</strong>
           </div>
-        ) : null}
-        {understanding.router ? (
+        ))}
+        {viewModel.whatCanChange.length === 0 ? (
           <div>
-            <span>Router</span>
-            <strong>Uses {understanding.contractLabel ?? semanticSummary.subtitle}</strong>
-          </div>
-        ) : null}
-        {understanding.assetAuthorityKind === "none" ? (
-          <div>
-            <span>Token permission</span>
-            <strong>No approval detected</strong>
-          </div>
-        ) : null}
-        {understanding.actionKind === "swap" &&
-        understanding.assetAuthorityKind !== "permit2" &&
-        understanding.assetAuthorityKind !== "unlimited-token-approval" ? (
-          <div>
-            <span>Permit2 / approval</span>
-            <strong>No Permit2 permission detected</strong>
-          </div>
-        ) : null}
-        {understanding.actionKind === "swap" &&
-        understanding.decodeQuality === "partial-protocol-decode" ? (
-          <div>
-            <span>Output details</span>
-            <strong>Output token / minimum received not fully decoded yet</strong>
-          </div>
-        ) : null}
-        {understanding.assetAuthorityKind === "permit2" ? (
-          <div>
-            <span>Permit2</span>
-            <strong>{understanding.spender ? `Spender ${understanding.spender}` : "Permit2 authority detected"}</strong>
-          </div>
-        ) : null}
-        {understanding.assetAuthorityKind === "unlimited-token-approval" ||
-        understanding.assetAuthorityKind === "limited-token-approval" ? (
-          <div>
-            <span>Token permission</span>
-            <strong>
-              {understanding.assetAuthorityKind === "unlimited-token-approval"
-                ? "Unlimited approval"
-                : "Limited approval"}
-            </strong>
-          </div>
-        ) : null}
-        {semanticSummary.primaryAmount ? (
-          <div>
-            <span>Amount</span>
-            <strong>{semanticSummary.primaryAmount}</strong>
-          </div>
-        ) : null}
-        {semanticSummary.tokenIn || semanticSummary.tokenOut ? (
-          <div>
-            <span>Route</span>
-            <strong>
-              {[semanticSummary.tokenIn, semanticSummary.tokenOut].filter(Boolean).join(" → ")}
-            </strong>
-          </div>
-        ) : null}
-        {semanticSummary.recipient ? (
-          <div>
-            <span>Recipient / contract</span>
-            <strong>{semanticSummary.recipient}</strong>
-          </div>
-        ) : null}
-        {semanticSummary.spender ? (
-          <div>
-            <span>Spender</span>
-            <strong>{semanticSummary.spender}</strong>
+            <span>What can change</span>
+            <strong>Review the final wallet prompt before continuing.</strong>
           </div>
         ) : null}
         {request.method.includes("sign") && payload.preview ? (
@@ -305,18 +215,11 @@ export function LiveRequestCard({
           </div>
         ) : null}
       </section>
-      <section className={`intentproof-result tone-${presentation.statusTone}`}>
+      <section className={`intentproof-result tone-${viewModel.statusTone}`}>
         <div>
           <span className="eyebrow">IntentProof result</span>
-          <strong>{intentProofResultHeadline}</strong>
-          <p>{decision.summary}</p>
-          {understanding.decodeQuality === "partial-protocol-decode" ? (
-            <p>
-              {understanding.actionKind === "swap"
-                ? "Route details are partially decoded. Verify token out, minimum received, and recipient in imToken before forwarding."
-                : "Recognized request with partial decode evidence."}
-            </p>
-          ) : null}
+          <strong>{viewModel.resultTitle}</strong>
+          <p>{viewModel.resultBody}</p>
         </div>
         <ul>
           {(decision.issues.length
@@ -341,10 +244,10 @@ export function LiveRequestCard({
         <button type="button" className="primary-action" onClick={onForward} disabled={!decision.canForward}>
           {decision.severity === "block"
             ? "Cannot relay with IntentProof"
-            : forwardButtonLabel}
+            : viewModel.primaryActionLabel}
         </button>
         <button type="button" className="button-secondary" onClick={onReject}>
-          Reject request
+          {viewModel.secondaryActionLabel}
         </button>
       </div>
       <details className="advanced-evidence">
@@ -406,6 +309,12 @@ export function LiveRequestCard({
             <span>Asset changes</span>
             <strong>{assetDeltaLabel(request, understanding)}</strong>
           </div>
+          {viewModel.advancedFacts.map((fact) => (
+            <div key={`${fact.label}-${fact.value}`}>
+              <span>{fact.label}</span>
+              <strong>{fact.value}</strong>
+            </div>
+          ))}
         </div>
         <p className="simulation-boundary-note">
           Simulation shows whether the request is likely to execute and what it may

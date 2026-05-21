@@ -224,9 +224,13 @@ Properties:
   non-routine requests after explicit user action. The AI receives only the
   normalized IntentProof review packet, not raw calldata as the source of
   truth, and it never changes policy or forwarding authority.
-- show protocol identity, ABI decode, protocol-specific decode, readable request
-  evidence, unusual signals, evidence confidence, risk level, execution status,
-  and relayability as separate concepts
+- show a wallet-grade request view first: DApp, action, asset/permission impact,
+  compact chain/status, what can change, and forward/reject action. Evidence
+  confidence, raw params, decode logs, and exact units belong in Advanced
+  evidence.
+- use shared token metadata resolution before user-facing summaries so rows,
+  detail cards, AI packets, and Advanced evidence use consistent symbols and
+  decimals
 - answer routine account, chain, and capability requests locally and move them
   to Activity instead of the primary Request Inbox
 - do not present live requests as simple yes/no, safe/unsafe, or PASS/BLOCK truth
@@ -298,7 +302,9 @@ WalletConnect forwarding.
   Advanced evidence.
 - Local AI review is advisory. When no explicit user intent is provided, it must
   use unclear intent-match language and must not describe unsigned requests as
-  already executed.
+  already executed. Local AI should appear as a compact briefing/annotation; AI
+  settings and model cache deletion status must not be mixed into request
+  reasoning.
 
 ### 3.3 Hosted app requirements
 

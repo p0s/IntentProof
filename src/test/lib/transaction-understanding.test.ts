@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { understandLiveRequest } from "../../lib/txUnderstanding/understandLiveRequest";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import {
+  buildUniversalRouterEthToUsdtCalldata,
   buildUniversalRouterUnsupportedV4Calldata,
   buildUniversalRouterV3ExactInCalldata,
+  ETH_TO_USDT_AMOUNT_IN,
 } from "./uniswap-universal-router-fixtures";
 
 describe("transaction understanding", () => {
@@ -97,6 +99,35 @@ describe("transaction understanding", () => {
     expect(understanding.valueSummary).toBe("0.000597 ETH");
     expect(understanding.advanced.nativeValueOutExact).toBe("0.000597157934796422 ETH");
     expect(understanding.advanced.nativeValueOutWei).toBe("597157934796422");
+  });
+
+  it("understands a common Uniswap ETH to USDT route with token symbols", () => {
+    const request = normalizeLiveRequest({
+      id: "uniswap-eth-usdt",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: `0x${ETH_TO_USDT_AMOUNT_IN.toString(16)}`,
+          data: buildUniversalRouterEthToUsdtCalldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const understanding = understandLiveRequest(request);
+
+    expect(understanding.actionTitle).toBe("Swap 0.000597 ETH → USDT");
+    expect(understanding.userSummary).toBe("Request a Uniswap swap through Universal Router.");
+    expect(understanding.tokenIn).toBe("WETH");
+    expect(understanding.tokenOut).toBe("USDT");
+    expect(understanding.amountIn).toBe("0.000597 WETH");
+    expect(understanding.minAmountOut).toBe("1.233192 USDT");
+    expect(understanding.advanced.amountInRaw).toBe(ETH_TO_USDT_AMOUNT_IN.toString());
+    expect(understanding.advanced.minAmountOutRaw).toBe("1233192");
+    expect(JSON.stringify(understanding)).not.toMatch(/encoded token amount/i);
   });
 
   it("decodes Lido submit as ETH staking", () => {

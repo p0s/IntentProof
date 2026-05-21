@@ -8,6 +8,7 @@ import {
   formatNativeValue,
   formatNativeValueExact,
   formatTokenAmount,
+  formatTokenAmountExact,
   shortAddress,
   tokenLabel,
   nativeValueWei,
@@ -46,17 +47,38 @@ export function decodeUniswapUniversalRouterRequest(
   const swap = plan.commands.find((command) => command.tokenPath?.length);
   const v4Command = plan.commands.find((command) => command.name === "V4_SWAP");
   const firstCommand = swap ?? v4Command ?? plan.commands[0];
-  const amountIn = commandAmountIn(request, swap);
+  const tokenInAddress = swap?.tokenPath?.[0];
+  const tokenOutAddress = swap?.tokenPath?.at(-1);
+  const tokenInLabel = tokenInAddress
+    ? tokenLabel(request.chain.chainKey, tokenInAddress)
+    : undefined;
+  const tokenOutLabel = tokenOutAddress
+    ? tokenLabel(request.chain.chainKey, tokenOutAddress)
+    : undefined;
   const minAmountOut = commandAmountOut(request, swap);
+  const amountIn = commandAmountIn(request, swap);
   const nativeValue = formatNativeValue(request);
   const nativeValueExact = formatNativeValueExact(request);
   const route = routeSymbols(request, swap);
-  const amountPhrase = amountIn ?? nativeValue ?? "encoded input amount";
+  const nativeWrappedIntoRoute = Boolean(nativeValue && tokenInLabel === "WETH");
+  const amountPhrase = nativeWrappedIntoRoute
+    ? nativeValue
+    : amountIn ?? nativeValue ?? "input amount";
   const title = v4Command && !swap
     ? `Swap ${amountPhrase} through Universal Router`
-    : `Swap ${amountPhrase}${route ? ` through ${route}` : ""}`;
+    : `Swap ${amountPhrase}${tokenOutLabel ? ` → ${tokenOutLabel}` : route ? ` through ${route}` : ""}`;
   const partialV4 = Boolean(v4Command?.partial);
   const fullDecode = plan.supported && !partialV4;
+  const amountInExact = formatTokenAmountExact(
+    request.chain.chainKey,
+    tokenInAddress,
+    swap?.amountIn ?? swap?.amountInMaximum,
+  );
+  const minAmountOutExact = formatTokenAmountExact(
+    request.chain.chainKey,
+    tokenOutAddress,
+    swap?.amountOutMinimum ?? swap?.amountOut,
+  );
 
   return {
     protocolName: "Uniswap",
@@ -66,14 +88,10 @@ export function decodeUniswapUniversalRouterRequest(
     actionTitle: title,
     userSummary: partialV4
       ? "Request a Uniswap V4 swap through Universal Router. IntentProof recognizes the router and V4 action, but cannot fully display the final token route yet."
-      : `Swap ${amountPhrase}${minAmountOut ? ` for at least ${minAmountOut}` : ""}${route ? ` through ${route}` : ""}.`,
+      : "Request a Uniswap swap through Universal Router.",
     valueSummary: nativeValue,
-    tokenIn: swap?.tokenPath?.[0]
-      ? tokenLabel(request.chain.chainKey, swap.tokenPath[0])
-      : undefined,
-    tokenOut: swap?.tokenPath?.at(-1)
-      ? tokenLabel(request.chain.chainKey, swap.tokenPath.at(-1))
-      : undefined,
+    tokenIn: tokenInLabel,
+    tokenOut: tokenOutLabel,
     amountIn,
     minAmountOut,
     recipient: firstCommand?.recipient,
@@ -123,6 +141,14 @@ export function decodeUniswapUniversalRouterRequest(
       v4Actions: v4Command?.v4Actions,
       nativeValueExact,
       nativeValueWei: nativeValueWei(request),
+      tokenInAddress,
+      tokenOutAddress,
+      tokenPath: swap?.tokenPath,
+      amountInRaw: (swap?.amountIn ?? swap?.amountInMaximum)?.toString(),
+      minAmountOutRaw: (swap?.amountOutMinimum ?? swap?.amountOut)?.toString(),
+      amountInExact,
+      minAmountOutExact,
+      nativeWrappedIntoRoute,
       summary: plan.summary,
     },
   };

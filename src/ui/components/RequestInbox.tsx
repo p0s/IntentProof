@@ -5,14 +5,8 @@ import type {
   BrowserAiModelOption,
   BrowserAiReviewState,
 } from "../../lib/live/browserAiReview";
-import {
-  assessLiveRequest,
-  formatExecutionStatus,
-  presentWalletRequest,
-} from "../../lib/live/requestAssessment";
-import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveReceipt, LiveRequest } from "../../lib/live/types";
-import { understandLiveRequest } from "../../lib/txUnderstanding/understandLiveRequest";
+import { buildWalletRequestViewModel } from "../../lib/live/walletRequestViewModel";
 
 interface RequestInboxProps {
   requests: LiveRequest[];
@@ -110,32 +104,17 @@ export function RequestInbox({
           </button>
         ))}
       </div>
-      <div className="ai-review-card" aria-label="Local AI review">
+      <div className="ai-review-card compact-ai-briefing" aria-label="AI briefing">
         <div className="ai-review-topline">
           <div>
-            <span className="eyebrow">Local AI</span>
-            <strong>{batchAiState.review?.overallHeadline ?? "Advisory review"}</strong>
+            <span className="eyebrow">AI briefing</span>
+            <strong>{batchAiState.review?.overallHeadline ?? "No concrete scam pattern found."}</strong>
             {batchAiState.review?.overallSummary ? (
               <p>{batchAiState.review.overallSummary}</p>
-            ) : null}
+            ) : (
+              <p>Advisory only. Deterministic policy and wallet review still control forwarding.</p>
+            )}
           </div>
-          <label className="ai-model-field">
-            <span>Model</span>
-            <select
-              value={browserAiModelId}
-              onChange={(event) => onBrowserAiModelChange(event.target.value)}
-              disabled={
-                browserAiState.status === "loading" ||
-                browserAiState.status === "reviewing"
-              }
-            >
-              {browserAiModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.label} · {model.approximateSize}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
         <div className="ai-review-actions">
           <button
@@ -176,6 +155,37 @@ export function RequestInbox({
           </button>
           {batchAiState.progress ? <span>{batchAiState.progress}</span> : null}
         </div>
+        <details className="ai-settings-details">
+          <summary>AI settings</summary>
+          <label className="ai-model-field">
+            <span>Model</span>
+            <select
+              value={browserAiModelId}
+              onChange={(event) => onBrowserAiModelChange(event.target.value)}
+              disabled={
+                browserAiState.status === "loading" ||
+                browserAiState.status === "reviewing"
+              }
+            >
+              {browserAiModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label} · {model.approximateSize}
+                </option>
+              ))}
+            </select>
+          </label>
+          {localAiCacheState.message ? (
+            <p
+              className={
+                localAiCacheState.status === "error"
+                  ? "browser-ai-error"
+                  : "browser-ai-cache-status"
+              }
+            >
+              {localAiCacheState.message}
+            </p>
+          ) : null}
+        </details>
         {browserAiState.progress ? (
           <p className="browser-ai-progress">{browserAiState.progress}</p>
         ) : null}
@@ -183,7 +193,8 @@ export function RequestInbox({
           <p className="browser-ai-error">{browserAiState.error}</p>
         ) : null}
         {browserAiState.review ? (
-          <div className="browser-ai-result">
+          <details className="browser-ai-result">
+            <summary>Local AI explanation</summary>
             <div>
               <span>AI headline</span>
               <strong>{browserAiState.review.headline}</strong>
@@ -242,20 +253,9 @@ export function RequestInbox({
                 )}
               </ul>
             </details>
-          </div>
+          </details>
         ) : null}
       </div>
-      {localAiCacheState.message ? (
-        <p
-          className={
-            localAiCacheState.status === "error"
-              ? "browser-ai-error"
-              : "browser-ai-cache-status"
-          }
-        >
-          {localAiCacheState.message}
-        </p>
-      ) : null}
       {batchAiState.error ? (
         <p className="browser-ai-error">{batchAiState.error}</p>
       ) : null}
@@ -295,16 +295,17 @@ export function RequestInbox({
         ) : null}
         {shownRequests.map((request) => {
           const decision = getDecision(request);
-          const assessment = assessLiveRequest({ request, decision });
-          const presentation = presentWalletRequest({ request, decision });
-          const summary = summarizeLiveRequest(request);
-          const understanding = understandLiveRequest(request);
           const aiReview = aiReviewByRequestId.get(request.id);
+          const viewModel = buildWalletRequestViewModel({
+            request,
+            decision,
+            aiAnnotation: aiReview?.judgement,
+          });
           return (
             <button
               key={request.id}
               type="button"
-              aria-label={`${assessment.sourceLabel} ${presentation.rowTitle} ${presentation.statusLabel} ${request.chain.label}`}
+              aria-label={`${viewModel.dappLabel} ${viewModel.rowTitle} ${viewModel.statusLabel} ${request.chain.label}`}
               className={
                 request.id === selectedRequestId
                   ? "request-row active"
@@ -313,12 +314,12 @@ export function RequestInbox({
               onClick={() => onSelect(request.id)}
             >
               <span className="request-dapp-avatar" aria-hidden="true">
-                {assessment.sourceLabel.slice(0, 2).toUpperCase()}
+                {viewModel.dappLabel.slice(0, 2).toUpperCase()}
               </span>
               <span className="request-row-main">
-                <span className="request-row-source">{assessment.sourceLabel}</span>
-                <strong>{presentation.rowTitle}</strong>
-                <small className="request-row-impact">{presentation.impactLine}</small>
+                <span className="request-row-source">{viewModel.dappLabel}</span>
+                <strong>{viewModel.rowTitle}</strong>
+                <small className="request-row-impact">{viewModel.impactLine}</small>
                 {aiReview ? (
                   <small className={`request-row-ai attention-${aiReview.attentionLevel}`}>
                     AI: {aiReview.judgement}
@@ -326,26 +327,12 @@ export function RequestInbox({
                 ) : null}
               </span>
               <span className="request-row-meta">
-                <em className={`request-row-status tone-${presentation.statusTone}`}>
-                  {presentation.statusLabel}
+                <em className={`request-row-status tone-${viewModel.statusTone}`}>
+                  {viewModel.statusLabel}
                 </em>
-                <em className="chain-badge">
-                  {request.chain.environment === "mainnet"
-                    ? "Mainnet"
-                    : request.chain.label}
-                </em>
+                <em className="chain-badge">{viewModel.chainBadge}</em>
               </span>
-              <small className="request-evidence-line">
-                {understanding.protocolConfidence === "known"
-                  ? "Recognized protocol"
-                  : understanding.protocolConfidence === "probable"
-                    ? "Known DApp"
-                    : "Source not profiled"} ·{" "}
-                {formatExecutionStatus(assessment.executionStatus)} ·{" "}
-                {understanding.decodeQuality === "partial-protocol-decode" && understanding.actionKind === "swap"
-                  ? "Partial V4 decode"
-                  : summary.chips.slice(0, 2).join(" · ")}
-              </small>
+              <small className="request-evidence-line">{viewModel.rowSubtitle}</small>
             </button>
           );
         })}

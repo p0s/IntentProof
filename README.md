@@ -27,16 +27,15 @@ The working flow has three steps:
 
 1. Connect a DApp: partner DApps open IntentProof with a routed WalletConnect
    URI, or users paste a URI, paste/upload a QR screenshot, or scan a QR.
-2. Request Inbox: live DApp requests appear with separate evidence confidence,
-   risk level, execution/simulation status, and user action.
+2. Request Inbox: live DApp requests appear as wallet approval rows with DApp,
+   action, asset/permission impact, status, and compact chain context.
 3. Review incoming request: IntentProof normalizes the JSON-RPC request, applies
-   Token Core evidence and policy checks, and shows routine/review/cannot-relay
-   status.
+   Token Core evidence and policy checks, then shows what the request wants,
+   what can change, and whether it can be forwarded or signed.
 
 From the review card, requests IntentProof cannot mediate are not relayed,
 unusual or incomplete evidence requires acknowledgement, and routine requests
-can be forwarded exactly to imToken for final signing. Activity is stored locally
-without secrets.
+are answered locally when possible. Activity is stored locally without secrets.
 
 ## App Structure
 
@@ -143,23 +142,28 @@ IntentProof separates deterministic request impact from simulation asset
 deltas. If a transaction includes native value, the wallet review shows the
 short human amount even when asset-change simulation is unavailable or did not
 return parsed deltas. Exact values and raw wei stay in Advanced evidence.
+The Request Inbox uses one canonical wallet request view model for rows and
+detail cards, so common requests such as `Swap 0.000597 ETH -> USDT` keep the
+same symbols, decimals, route, and impact copy everywhere. Token metadata is
+resolved from chain config plus selected Ethereum/Base presets before the main
+UI is rendered; unknown tokens are labeled as unknown in the main UI and full
+addresses/raw units remain in Advanced evidence.
 
 Routine wallet coordination requests such as account, chain, and capability
 checks are answered locally and recorded in Activity instead of cluttering the
 primary Request Inbox. Unsupported methods or chains remain unrelayable.
 
-The Request Inbox also includes optional local AI review. It uses WebLLM in the
-browser after the user clicks `Review selected` or `Review inbox`, with model
-options kept under 1 GB: SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B. The
-local model receives only IntentProof's normalized review packet, including the
-deterministic transaction-understanding result. It does not receive wallet
-secrets, and it is not allowed to make requests forwardable. If no explicit user
-intent exists for a live DApp request, AI review must say intent is unclear
-rather than inventing a mismatch. AI wording is normalized to describe unsigned
-requests as requested or pending review, never as already executed. Users can
-delete downloaded local AI model files from the Request Inbox. That clears
-WebLLM model cache entries only; it does not touch local vaults, receipts,
-WalletConnect sessions, or app settings.
+The Request Inbox also includes optional local AI review as a compact briefing.
+It uses WebLLM in the browser after the user clicks `Review selected` or
+`Review inbox`, with model choice hidden under AI settings. The local model
+receives only IntentProof's normalized review packet and canonical wallet view
+model. It does not receive wallet secrets, and it is not allowed to make
+requests forwardable. If no explicit user intent exists for a live DApp request,
+AI review must say intent is unclear rather than inventing a mismatch. AI
+wording is normalized to describe unsigned requests as requested or pending
+review, never as already executed. Users can delete downloaded local AI model
+files from AI settings. That clears WebLLM model cache entries only; it does not
+touch local vaults, receipts, WalletConnect sessions, or app settings.
 
 ## Token Core Usage
 

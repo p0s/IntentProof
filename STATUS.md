@@ -14,8 +14,8 @@ _Last updated: 2026-05-21_
 - Live mode: DApps route WalletConnect requests through IntentProof, then
   reviewable requests can be forwarded to a WalletConnect signer, signed with
   Local Token Core Vault, or forwarded to imToken Web. Live
-  Request Inbox is evidence-first: it shows what the request does, what is
-  unusual, what evidence is missing, and what IntentProof can or cannot relay.
+  Request Inbox is wallet-first: it shows who is asking, what they want, what
+  can change, and what IntentProof can or cannot relay.
   It does not claim to know the user's private intent or reduce arbitrary DApp
   requests to simple safe/unsafe truth.
 - DApp connection: primary flow is a minimalist unified intake for QR camera
@@ -133,6 +133,17 @@ _Last updated: 2026-05-21_
 - [x] Request Inbox can delete downloaded WebLLM local model cache entries
   without touching local vaults, receipts, WalletConnect sessions, or app
   settings.
+- [x] Added shared token metadata resolution for chain-config tokens and common
+  Ethereum/Base assets, so rows, detail cards, AI packets, and Advanced
+  evidence use consistent symbols and decimals.
+- [x] Added a canonical wallet request view model consumed by both the Request
+  Inbox row and selected request card. Common Uniswap swaps now render as
+  wallet confirmations such as `Swap 0.000597 ETH -> USDT`, with exact raw
+  units and full token addresses kept in Advanced evidence.
+- [x] Local AI is now a compact briefing/annotation. Model selection and cache
+  deletion status live under AI settings instead of inside request reasoning.
+- [x] Connected DApp setup collapses to a compact listening state, with QR,
+  upload, and paste controls hidden behind `Connect another DApp`.
 - [x] Added a repeatable `npm run test:e2e:dapps` harness for Tokenlon, 1inch,
   Curve, Lido, ENS, Sushi, Compound, and Aave request classes. This tests the
   real Protect Wallet inbox, scoring, reject, warning acknowledgement,
@@ -199,10 +210,10 @@ _Last updated: 2026-05-21_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 41 files, 268 tests.
+- `npm run test:unit` PASS - 43 files, 274 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 4 files, 36 tests.
+- `npm run test:ui` PASS - 4 files, 37 tests.
 - `npm run build:ui` PASS - WebLLM chunk-size warning only.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.
