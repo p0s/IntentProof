@@ -1,6 +1,6 @@
 # STATUS.md - IntentProof backlog
 
-_Last updated: 2026-05-20_
+_Last updated: 2026-05-21_
 
 ## Current Decision Set
 
@@ -9,10 +9,11 @@ _Last updated: 2026-05-20_
 - Primary screen: `Protect Wallet`.
 - Default live network: Ethereum mainnet through WalletConnect/imToken
   forwarding. Examples and Token Core Lab remain testnet-first.
-- Signer sources: imToken Web, Local Token Core Vault, and WalletConnect fallback.
+- Signer sources: WalletConnect wallet by default, with optional imToken Web and
+  Local Token Core Vault modes.
 - Live mode: DApps route WalletConnect requests through IntentProof, then
-  reviewable requests can be forwarded to imToken Web, signed with Local Token
-  Core Vault, or forwarded to a WalletConnect fallback signer. Live
+  reviewable requests can be forwarded to a WalletConnect signer, signed with
+  Local Token Core Vault, or forwarded to imToken Web. Live
   Request Inbox is evidence-first: it shows what the request does, what is
   unusual, what evidence is missing, and what IntentProof can or cannot relay.
   It does not claim to know the user's private intent or reduce arbitrary DApp
@@ -20,13 +21,13 @@ _Last updated: 2026-05-20_
 - DApp connection: primary flow is a minimalist unified intake for QR camera
   scan, QR screenshot paste/upload, or WalletConnect URI paste. Secondary
   partner/custom routing still captures the URI in memory, removes it from the
-  visible URL, then pairs after imToken connects.
+  visible URL, then pairs after the selected signer connects.
 - Not claimed: native imToken extension or arbitrary imToken Browser
   interception.
 - Token Core: preserved for local testnet wallet creation/signing, templates,
   analyze/decode/policy checks, CLI commands, Sepolia, and Base Sepolia.
 - Mainnet: Ethereum and Base mainnet show a warning in Protect Wallet.
-  imToken Web and WalletConnect fallback keep custody in the external signer.
+  WalletConnect wallet and imToken Web keep custody in the external signer.
   Local Token Core Vault mainnet signing is disabled by default and requires
   explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
   request.
@@ -43,18 +44,18 @@ _Last updated: 2026-05-20_
 ## Product Surface
 
 - [x] Protect Wallet is the default first screen.
-- [x] Top-right signer selector: imToken Web, Local Token Core Vault,
-  WalletConnect wallet.
+- [x] Top-right signer selector defaults to WalletConnect wallet, with imToken
+  Web and Local Token Core Vault available as alternate modes.
 - [x] Local Token Core Vault uses `@consenlabs/tcx-wasm`, encrypted keystore
   storage, account derivation, lock/unlock, delete, and reviewed signing gates.
-- [x] imToken Connect adapter added as the primary imToken Web signer path.
+- [x] imToken Connect adapter added as the optional imToken Web signer path.
 - [x] Lightweight Token UI-inspired component layer added with provenance.
 - [x] Top-right signer account control.
 - [x] Connect a DApp card.
 - [x] Request Inbox.
 - [x] Verifiable Signing Card for live requests.
 - [x] Mainnet warning for Ethereum/Base mainnet requests.
-- [x] Forward/reject actions framed as imToken final review, not IntentProof
+- [x] Forward/reject actions framed as final signer review, not IntentProof
   safety approval.
 - [x] Examples is a secondary support tool with five deterministic scenarios.
 - [x] Token Core Lab is a secondary support tool with local Token Core wallet/signing controls.
@@ -75,14 +76,16 @@ _Last updated: 2026-05-20_
 - [x] Routed DApp URL supports custom wallet entries without user paste/scan.
 - [x] Unified DApp connection intake for visible WalletConnect URI paste, QR
   screenshot paste/upload, and camera scan feeds the same pairing path.
-- [x] Routed or pasted DApp URIs show an inline Connect imToken continuation
-  action when the final signing wallet is not connected yet.
+- [x] Routed or pasted DApp URIs show an inline connect continuation action for
+  the selected signer when the final signing wallet is not connected yet.
 - [x] Companion `/demo-dapp` route is kept as a small integration example.
-- [x] Network selector requests `wallet_switchEthereumChain` in imToken and
+- [x] Network selector requests `wallet_switchEthereumChain` in the selected signer and
   emits WalletConnect `chainChanged` to connected DApps.
 - [x] Ethereum is the default live network; all configured WalletConnect
   networks are advertised without a duplicate mainnet allow switch.
-- [x] Connected account pill exposes an explicit imToken disconnect/logout action.
+- [x] Connected account pill exposes an explicit signer disconnect/logout action.
+- [x] External signer sessions are not silently restored on first load, avoiding
+  stale WalletConnect accounts unless the user explicitly reconnects.
 - [x] Inbound WalletConnect sessions advertise and locally answer
   `wallet_getCapabilities` so Uniswap-style DApps can continue to the
   transaction request instead of stalling at `Confirm in wallet`.
@@ -196,15 +199,15 @@ _Last updated: 2026-05-20_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 41 files, 264 tests.
+- `npm run test:unit` PASS - 41 files, 268 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
-- `npm run test:ui` PASS - 4 files, 35 tests.
+- `npm run test:ui` PASS - 4 files, 36 tests.
 - `npm run build:ui` PASS - WebLLM chunk-size warning only.
 - `npm run verify` equivalent PASS via lint, typecheck, unit, CLI, chain smoke,
   and UI build commands.
-- `npm run audit:high` PASS - no high severity issues; moderate transitive
-  `ws` advisory remains through `@consenlabs/imtoken-connect -> viem`.
+- `npm run audit:high` PASS - found 0 vulnerabilities after pinning the
+  transitive `ws` dependency through npm overrides.
 - `npm run secrets:check` PASS.
 - `git diff --check` PASS.
 - Browser visual QA PASS for Protect Wallet desktop, secondary Examples/Token

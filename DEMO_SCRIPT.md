@@ -19,7 +19,7 @@ Show Protect Wallet.
 Narration:
 
 ```text
-IntentProof Tx Guard protects wallet signing. A DApp routes requests through IntentProof, Token Core evidence explains the actual request, and the user chooses imToken Web, Local Token Core Vault, or another wallet as signer.
+IntentProof Tx Guard protects wallet signing. A DApp routes requests through IntentProof, Token Core evidence explains the actual request, and the user signs with WalletConnect, imToken Web, or a Local Token Core Vault.
 ```
 
 ### 10-22s - Connect Flow
@@ -29,7 +29,7 @@ Show the signer selector, top-right signer control, Connect a DApp, QR/URI intak
 Narration:
 
 ```text
-The flow is simple: choose a signer, connect a DApp, then review incoming request evidence before forwarding to imToken Web or signing with the Local Token Core Vault.
+The flow is simple: connect the default WalletConnect signer, connect a DApp, then review incoming request evidence before forwarding or signing with the selected signer.
 ```
 
 ### 22-32s - Demo DApp Launch
@@ -79,7 +79,7 @@ Select the typed-data request.
 Narration:
 
 ```text
-Human-readable signatures require user review. IntentProof shows the payload and waits for acknowledgement before sending it to imToken.
+Human-readable signatures require user review. IntentProof shows the payload and waits for acknowledgement before sending it to the selected signer.
 ```
 
 ### 72-82s - Examples

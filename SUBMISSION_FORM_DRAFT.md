@@ -27,7 +27,7 @@ IntentProof Tx Guard
 ### Project description
 
 ```text
-IntentProof Tx Guard routes DApp requests through a Token Core-powered review layer before imToken Web, a Local Token Core Vault, or another wallet signs. It explains calldata, approvals, routes, and simulation evidence.
+IntentProof Tx Guard routes DApp requests through a Token Core-powered review layer before a WalletConnect wallet, imToken Web, or Local Token Core Vault signs. It explains calldata, approvals, routes, and simulation evidence.
 ```
 
 ### Project category
@@ -89,7 +89,7 @@ Upload a 60-90 second video under 20 MB. Use `DEMO_SCRIPT.md`.
 ### Token Core usage notes
 
 ```text
-Built from the official Token Core CLI demo branch at token-core/tcx-examples/cli. IntentProof uses @consenlabs/tcx-wasm for the Local Token Core Vault, encrypted keystore wallet creation, account derivation, local signing, Token Core Lab testnet signing, transaction templates, analyze/decode, policy pre-checks, and Sepolia/Base Sepolia support. imToken Connect is used for the imToken Web signer path. A lightweight Token UI-inspired layer and Security Skill guidance are documented.
+Built from the official Token Core CLI demo branch at token-core/tcx-examples/cli. IntentProof uses @consenlabs/tcx-wasm for the Local Token Core Vault, encrypted keystore wallet creation, account derivation, transaction/message signing, Token Core Lab testnet signing, transaction templates, analyze/decode, policy pre-checks, and Sepolia/Base Sepolia support. imToken Connect is available as an optional imToken Web signer path.
 ```
 
 ### GitHub code / repo link
@@ -126,13 +126,13 @@ Yes, feature my project
 Showcase-friendly one-liner:
 
 ```text
-IntentProof reviews DApp requests before imToken Web or Token Core Vault signs.
+IntentProof reviews WalletConnect requests before any selected signer signs.
 ```
 
 Showcase blurb:
 
 ```text
-A WalletConnect transaction firewall for imToken users. DApps route requests through IntentProof; Token Core evidence explains calldata, approvals, routes, and simulation signals; then imToken Web or a Local Token Core Vault signs only after review.
+A WalletConnect transaction firewall for imToken users. DApps route requests through IntentProof; Token Core evidence explains calldata, approvals, routes, and simulation signals; then the selected signer continues only after review.
 ```
 
 Integration note:

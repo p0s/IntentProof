@@ -216,11 +216,11 @@ describe("top dapp WalletConnect E2E harness", () => {
       }),
     );
     expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Reject request" }));
     expect(signer.forwarded).toBe(0);
 
@@ -230,11 +230,11 @@ describe("top dapp WalletConnect E2E harness", () => {
       }),
     );
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("one-inch-sign");
 
@@ -248,7 +248,7 @@ describe("top dapp WalletConnect E2E harness", () => {
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     await waitFor(() => expect(signer.forwarded).toBe(2));
     expect(signer.lastRequestId).toBe("sushi-limited-approval");
     expect(inbound.approvedResults).toEqual([

@@ -238,6 +238,8 @@ function clearConnectRouteUri() {
   window.history.replaceState(window.history.state, document.title, cleanedUrl);
 }
 
+const DEFAULT_SIGNER_SOURCE: SignerSource = "walletconnect-fallback";
+
 function defaultSignerState(source: SignerSource, walletConnectConfigured: boolean): LiveConnectorState {
   if (source === "imtoken-web") {
     return {
@@ -546,7 +548,8 @@ function App({ liveClients }: AppProps = {}) {
   const [dappUriSource, setDappUriSource] = useState<DappUriSource>(
     initialDappRoute.hasUri ? "route" : "manual",
   );
-  const [signerSource, setSignerSource] = useState<SignerSource>("imtoken-web");
+  const [signerSource, setSignerSource] =
+    useState<SignerSource>(DEFAULT_SIGNER_SOURCE);
   const [localVaultRecord, setLocalVaultRecord] =
     useState<LocalTokenCoreVaultRecord>();
   const [localVaultSession, setLocalVaultSession] =
@@ -561,12 +564,9 @@ function App({ liveClients }: AppProps = {}) {
   const [localVaultMainnetEnabled, setLocalVaultMainnetEnabled] = useState(false);
   const [localVaultMainnetAcknowledged, setLocalVaultMainnetAcknowledged] =
     useState(false);
-  const [imTokenState, setImTokenState] = useState<LiveConnectorState>({
-    status: "idle",
-    label: "Ready to connect imToken Web",
-    detail:
-      "Use imToken Web as the final signer. IntentProof reviews before forwarding.",
-  });
+  const [imTokenState, setImTokenState] = useState<LiveConnectorState>(() =>
+    defaultSignerState(DEFAULT_SIGNER_SOURCE, walletConnectConfigured),
+  );
   const [dappState, setDappState] = useState<LiveConnectorState>({
     status: initialDappRoute.valid
       ? walletConnectConfigured
@@ -588,7 +588,7 @@ function App({ liveClients }: AppProps = {}) {
           : "WalletConnect setup required",
     detail: initialDappRoute.valid
       ? walletConnectConfigured
-        ? "IntentProof captured the DApp request from the URL. Connect imToken to start pairing."
+        ? `IntentProof captured the DApp request from the URL. Connect ${signerSourceLabel(DEFAULT_SIGNER_SOURCE)} to start pairing.`
         : "Add VITE_WALLETCONNECT_PROJECT_ID to use routed DApp pairing."
       : initialDappRoute.hasUri
         ? "The routed URL did not contain a valid WalletConnect URI."
@@ -613,7 +613,7 @@ function App({ liveClients }: AppProps = {}) {
   const [liveActionStatus, setLiveActionStatus] = useState(
     initialDappRoute.valid
       ? walletConnectConfigured
-        ? "DApp route received. Connect imToken to continue."
+        ? `DApp route received. Connect ${signerSourceLabel(DEFAULT_SIGNER_SOURCE)} to continue.`
         : "DApp route received, but WalletConnect setup is missing."
       : initialDappRoute.hasUri
         ? "DApp route rejected because the WalletConnect URI was invalid."
@@ -648,12 +648,11 @@ function App({ liveClients }: AppProps = {}) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const liveSignerRef = useRef<LiveSignerClient | undefined>(liveClients?.signer);
   const liveSignerSourceRef = useRef<SignerSource | undefined>(
-    liveClients?.signer ? "imtoken-web" : undefined,
+    liveClients?.signer ? DEFAULT_SIGNER_SOURCE : undefined,
   );
   const liveInboundRef = useRef<LiveInboundClient | undefined>(liveClients?.inbound);
   const autoVerifyStarted = useRef(false);
   const routedDappPairingStarted = useRef(false);
-  const imTokenRestoreStarted = useRef(false);
   const inboundRestoreAccountKey = useRef<string | undefined>(undefined);
 
   const getOrCreateExternalSigner = useCallback(() => {
@@ -995,7 +994,9 @@ function App({ liveClients }: AppProps = {}) {
       return;
     }
     try {
-      setLiveActionStatus(`Requesting ${chain.label} network switch in imToken...`);
+      setLiveActionStatus(
+        `Requesting ${chain.label} network switch in ${signerSourceLabel(signerSource)}...`,
+      );
       const result = await signer.switchChain(scope);
       setImTokenState(result.state);
       const account = result.state.account ?? imTokenState.account;
@@ -1003,7 +1004,7 @@ function App({ liveClients }: AppProps = {}) {
       setLiveActionStatus(
         source === "dapp"
           ? `${chain.label} switch approved. Connected DApps were notified.`
-          : `${chain.label} selected in imToken. Connected DApps were notified.`,
+          : `${chain.label} selected in ${signerSourceLabel(signerSource)}. Connected DApps were notified.`,
       );
     } catch (error) {
       setLiveActionStatus(
@@ -1377,7 +1378,6 @@ function App({ liveClients }: AppProps = {}) {
     liveInboundRef.current = undefined;
     routedDappPairingStarted.current = false;
     inboundRestoreAccountKey.current = undefined;
-    imTokenRestoreStarted.current = false;
     setImTokenState(defaultSignerState(nextSource, walletConnectConfigured));
     setDappState({
       status: walletConnectConfigured ? "idle" : "setup-required",
@@ -1444,7 +1444,6 @@ function App({ liveClients }: AppProps = {}) {
     }
     liveSignerRef.current = undefined;
     liveSignerSourceRef.current = undefined;
-    imTokenRestoreStarted.current = false;
     inboundRestoreAccountKey.current = undefined;
     setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
     setLiveActionStatus(
@@ -1462,7 +1461,6 @@ function App({ liveClients }: AppProps = {}) {
     liveSignerRef.current = undefined;
     liveSignerSourceRef.current = undefined;
     liveInboundRef.current = undefined;
-    imTokenRestoreStarted.current = false;
     inboundRestoreAccountKey.current = undefined;
     routedDappPairingStarted.current = false;
     setImTokenState(defaultSignerState(signerSource, walletConnectConfigured));
@@ -1491,33 +1489,6 @@ function App({ liveClients }: AppProps = {}) {
     await handleResetLiveSessions();
     setLiveActionStatus("Signer disconnected. Connect again before handling DApp requests.");
   }
-
-  useEffect(() => {
-    if (
-      signerSource === "imtoken-web" ||
-      signerSource === "local-token-core-vault" ||
-      (signerSource === "walletconnect-fallback" && !walletConnectConfigured) ||
-      imTokenRestoreStarted.current
-    ) {
-      return;
-    }
-    imTokenRestoreStarted.current = true;
-
-    const signer = getOrCreateExternalSigner();
-    if (!signer.restoreSession) return;
-
-    void signer
-      .restoreSession()
-      .then((result) => {
-        if (!result.ok || !result.state.account) return;
-        setImTokenState(result.state);
-        setLiveActionStatus(result.state.detail);
-      })
-      .catch(() => {
-        // Silent restore keeps first-load UX unchanged when no WalletConnect
-        // session exists or the provider cannot restore without user action.
-      });
-  }, [getOrCreateExternalSigner, signerSource, walletConnectConfigured, walletConnectProjectId]);
 
   const handleConnectDapp = useCallback(async (pairingUriOverride?: string) => {
     const pairingUri = (pairingUriOverride ?? dappPairingUri).trim();

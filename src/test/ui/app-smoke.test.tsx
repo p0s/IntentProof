@@ -156,8 +156,8 @@ describe("App smoke test", () => {
         name: "Protect your imToken before signing.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Connect imToken Web" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Signer source" })).toHaveValue("imtoken-web");
+    expect(screen.getByRole("button", { name: "Connect WalletConnect" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Signer source" })).toHaveValue("walletconnect-fallback");
     expect(screen.queryByRole("heading", { name: "Choose signer" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Network/i })).toHaveValue("ethereum");
     expect(screen.getByRole("button", { name: /Auto theme/i })).toBeInTheDocument();
@@ -222,7 +222,7 @@ describe("App smoke test", () => {
 
     expect(screen.getAllByText("WalletConnect setup required").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Connect imToken Web" }),
+      screen.getByRole("button", { name: "Connect WalletConnect" }),
     ).toBeEnabled();
 
     await openSupportTool("Open Examples");
@@ -243,18 +243,18 @@ describe("App smoke test", () => {
     expect(screen.getByText("Local wallet controls are hidden by default.")).toBeInTheDocument();
   });
 
-  it("updates the imToken card after a successful connection", async () => {
+  it("updates the WalletConnect signer control after a successful connection", async () => {
     const user = userEvent.setup();
     render(<App liveClients={{ signer: new FakeSignerClient(), projectId: "test-project" }} />);
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
 
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: /0x7777/i }),
       ).toBeInTheDocument(),
     );
-    expect(screen.queryByRole("button", { name: "Connect imToken Web" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect WalletConnect" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /0x7777/i })).toBeEnabled();
   });
 
@@ -308,7 +308,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
@@ -316,20 +316,20 @@ describe("App smoke test", () => {
     await user.click(screen.getByRole("menuitem", { name: "Disconnect signer" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Connect imToken Web" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Connect WalletConnect" })).toBeInTheDocument(),
     );
     expect(
       screen.getByText("Signer disconnected. Connect again before handling DApp requests."),
     ).toBeInTheDocument();
   });
 
-  it("requests imToken network switch from the top network selector", async () => {
+  it("requests external signer network switch from the top network selector", async () => {
     const user = userEvent.setup();
     const signer = new FakeSignerClient();
     const inbound = new FakeInboundClient();
     render(<App liveClients={{ signer, inbound, projectId: "test-project" }} />);
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
@@ -338,11 +338,11 @@ describe("App smoke test", () => {
     await waitFor(() => expect(signer.switchedChains).toContain("base"));
     expect(inbound.activeChainUpdates).toContain("base");
     expect(
-      screen.getByText("Base Mainnet selected in imToken. Connected DApps were notified."),
+      screen.getByText("Base Mainnet selected in WalletConnect wallet. Connected DApps were notified."),
     ).toBeInTheDocument();
   });
 
-  it("captures a routed WalletConnect URI and pairs after imToken connects", async () => {
+  it("captures a routed WalletConnect URI and pairs after the selected signer connects", async () => {
     const user = userEvent.setup();
     window.history.pushState(
       {},
@@ -363,13 +363,13 @@ describe("App smoke test", () => {
     expect(window.location.search).toBe("");
     expect(screen.getByText("DApp route detected")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Connect imToken Web to continue" }),
+      screen.getByRole("button", { name: "Connect WalletConnect wallet to continue" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", { name: "WalletConnect URI or QR screenshot" }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
@@ -382,7 +382,7 @@ describe("App smoke test", () => {
     expect(screen.getByText(/merchant\.intentproof\.example/i)).toBeInTheDocument();
   });
 
-  it("waits for a user click before connecting imToken Web for a routed DApp URI", async () => {
+  it("waits for a user click before connecting the selected signer for a routed DApp URI", async () => {
     const user = userEvent.setup();
     const signer = new FakeSignerClient({ restoreOnLoad: true });
     window.history.pushState(
@@ -402,13 +402,13 @@ describe("App smoke test", () => {
 
     expect(window.location.pathname).toBe("/wc");
     expect(window.location.search).toBe("");
-    expect(screen.getByRole("button", { name: "Connect imToken Web" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect WalletConnect" })).toBeInTheDocument();
     expect(screen.getByText("DApp route detected")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /0x7777/i }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
@@ -446,7 +446,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
@@ -515,7 +515,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
@@ -556,7 +556,7 @@ describe("App smoke test", () => {
       ).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("button", { name: "Connect imToken Web to continue" }),
+      screen.getByRole("button", { name: "Connect WalletConnect wallet to continue" }),
     ).toBeInTheDocument();
   });
 
@@ -585,12 +585,12 @@ describe("App smoke test", () => {
     await user.click(screen.getByText("swap.example"));
     expect(screen.getByLabelText("Mainnet warning")).toBeInTheDocument();
     expect(screen.queryByLabelText("Allow mainnet requests for this session")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
     expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 
   it("keeps populated live review surfaces wallet-first", async () => {
@@ -632,7 +632,7 @@ describe("App smoke test", () => {
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
     await openSupportTool("Open Activity");
 
     const liveReceiptSummary = screen.getByLabelText("Live receipt summary");
@@ -660,7 +660,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
     await user.click(screen.getByRole("button", { name: "Review selected" }));
 
@@ -670,7 +670,7 @@ describe("App smoke test", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/unclear · No explicit user intent was provided/i)).toBeInTheDocument();
     expect(screen.queryByText(/executed/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 
   it("runs batch local AI review from the Request Inbox", async () => {
@@ -702,7 +702,7 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/Local AI reviewed 3 normalized IntentProof packets/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/No concrete scam pattern found by local AI/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText("review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeEnabled();
   });
 
   it("lets users delete downloaded local AI model files", async () => {
@@ -866,12 +866,12 @@ describe("App smoke test", () => {
 
     await user.click(screen.getByText("sign.example"));
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Forward to connected wallet" })).toBeDisabled();
 
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
-    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
 
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("fake-live-typed-data");
@@ -891,11 +891,11 @@ describe("App smoke test", () => {
     );
 
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Forward to connected wallet" }));
 
     expect(signer.forwarded).toBe(1);
     expect(signer.lastRequestId).toBe("fake-live-safe-transfer");
-    expect(screen.getByText("Request forwarded to imToken Web exactly once.")).toBeInTheDocument();
+    expect(screen.getByText("Request forwarded to WalletConnect wallet exactly once.")).toBeInTheDocument();
   });
 
   it("approves wallet coordination requests locally so DApps can continue", async () => {
@@ -927,7 +927,7 @@ describe("App smoke test", () => {
     expect(
       screen.getByText("Switch to Ethereum Mainnet (wallet_switchEthereumChain)"),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
+    await user.click(screen.getByRole("button", { name: "Connect WalletConnect" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );

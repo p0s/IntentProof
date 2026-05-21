@@ -7,7 +7,7 @@ DApp WalletConnect URI or QR
 -> IntentProof pairs the DApp after the selected signer is available
 -> IntentProof receives and explains the request
 -> protocol identity, ABI decode, protocol decode, risk, execution, and action state
--> reviewable request is forwarded to imToken Web, signed by Local Token Core Vault, or forwarded to a fallback wallet
+-> reviewable request is forwarded to a WalletConnect signer, signed by Local Token Core Vault, or forwarded to imToken Web
 -> result or rejection is returned to the DApp session
 ```
 
@@ -25,7 +25,7 @@ path, but it is not promoted in the main product UI.
 ## Smartphone QR Flow
 
 IntentProof can be opened directly on a smartphone browser. In that setup, the
-user connects imToken Web or prepares a Local Token Core Vault, then taps `Scan QR with camera` and
+user connects a WalletConnect signer or prepares a Local Token Core Vault, then taps `Scan QR with camera` and
 scans a WalletConnect QR displayed by a DApp on a desktop or another device.
 
 If the DApp is running on the same phone, use partner/custom wallet routing,
@@ -56,14 +56,15 @@ Unsupported or unsafe methods are not relayed by default:
 - Base Sepolia: `eip155:84532`
 
 Ethereum mainnet is the default live review network. Mainnet requests show a
-visible warning. imToken Web and WalletConnect wallet keep custody in the
+visible warning. WalletConnect wallet and imToken Web keep custody in the
 external signer. Local Token Core Vault mainnet signing is disabled by default
 and requires explicit session opt-in, vault unlock, acknowledgement, and a
 non-blocked request.
 
 ## Security Rules
 
-- imToken Web remains the primary external signer.
+- WalletConnect wallet is the default external signer path; imToken Web remains
+  available as an optional signer path.
 - Local Token Core Vault is a first-class Token Core signer and stores only
   encrypted keystore data in this browser.
 - Local Token Core Vault can sign reviewed transactions, UTF-8-readable

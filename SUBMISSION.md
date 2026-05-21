@@ -65,16 +65,17 @@ component layer and Security Skill guidance are documented in provenance files.
 
 ## Live WalletConnect Mode
 
-Protect Wallet is the primary product surface. Users choose imToken Web, Local
-Token Core Vault, or WalletConnect wallet as the signer source. IntentProof
+Protect Wallet is the primary product surface. It defaults to a WalletConnect
+wallet signer, such as imToken mobile, with imToken Web and Local Token Core
+Vault available from the account menu. IntentProof
 accepts routed DApp WalletConnect requests, normalizes incoming JSON-RPC
 requests, runs policy/Token Core evidence checks, and either explains why the
 request cannot continue or forwards/signs with the selected signer.
 
 Users connect DApps from the main Connect a DApp card by pasting a
 WalletConnect URI, pasting/uploading a QR screenshot, or scanning a QR with the
-camera. IntentProof reads the URI in memory, asks the user to connect imToken if
-needed, then pairs the DApp through IntentProof. Custom-wallet routing remains
+camera. IntentProof reads the URI in memory, asks the user to connect the
+selected signer if needed, then pairs the DApp through IntentProof. Custom-wallet routing remains
 available for partner/demo integrations, but it is not the primary user flow.
 
 Supported methods:
@@ -119,9 +120,9 @@ review packet instead of raw calldata, and never changes forwarding authority.
 
 1. Open the hosted link.
 2. Show Protect Wallet as the first screen.
-3. Show the signer selector: imToken Web, Local Token Core Vault, and
-   WalletConnect wallet.
-4. Select a routine request and forward it to imToken in the configured/fake demo
+3. Show the signer selector: WalletConnect wallet, imToken Web, and Local Token
+   Core Vault.
+4. Select a routine request and forward it to the connected signer in the configured/fake demo
    flow.
 5. Select the mainnet unlimited approval request and show the approval details,
    evidence confidence, risk level, execution status, and acknowledgement gate.
@@ -137,7 +138,7 @@ review packet instead of raw calldata, and never changes forwarding authority.
 0. Choose a signer source.
 1. Connect a DApp through IntentProof.
 2. Review the Request Inbox.
-3. Forward to imToken Web, sign with Local Token Core Vault, or reject from the
+3. Forward to the WalletConnect signer, sign with Local Token Core Vault, or reject from the
    review card.
 4. Use Examples for deterministic hosted examples.
 7. Use Token Core Lab only for fresh local Token Core testnet wallets.

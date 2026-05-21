@@ -24,7 +24,7 @@ Build **IntentProof Tx Guard** for the imToken 10th Anniversary AI Co-creation C
 
 **Hard rule**
 
-This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof, explains the request using decode/simulation/policy evidence, and then uses the selected signer: imToken Web, a Local Token Core Vault, or a WalletConnect fallback. It does not claim to know the user's private intent for arbitrary live DApp requests. Examples and Token Core Lab remain available without API keys. At least one PASS example scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Local Token Core Vault signing defaults to testnet; mainnet local vault signing is session opt-in only after the vault is selected, unlocked, warnings are acknowledged, and IntentProof has not blocked the request.
+This is a working wallet transaction guard, not a static mockup. Protect Wallet routes WalletConnect DApp requests through IntentProof, explains the request using decode/simulation/policy evidence, and then uses the selected signer: WalletConnect wallet by default, with imToken Web and a Local Token Core Vault as optional signer modes. It does not claim to know the user's private intent for arbitrary live DApp requests. Examples and Token Core Lab remain available without API keys. At least one PASS example scenario must support real Token Core local signing on testnet. Broadcast may remain explicit/optional. Local Token Core Vault signing defaults to testnet; mainnet local vault signing is session opt-in only after the vault is selected, unlocked, warnings are acknowledged, and IntentProof has not blocked the request.
 
 ---
 
@@ -410,7 +410,7 @@ Hard-cut the current technical CLI UI into a polished single-product experience:
 
 ```text
 Protect Wallet
-  -> Connect imToken
+  -> Connect selected signer
   -> Connect a DApp
   -> Request Inbox
   -> Verifiable Signing Card
@@ -1063,7 +1063,7 @@ Built from the official Token Core CLI demo branch at token-core/tcx-examples/cl
 
 - [ ] App opens as `IntentProof Tx Guard`, not generic CLI UI.
 - [ ] Protect Wallet is the default first screen.
-- [ ] First screen has a top-right Connect imToken account control and a Connect a DApp card.
+- [ ] First screen has a top-right signer account control and a Connect a DApp card.
 - [ ] Scenario grid is not on the first screen.
 - [ ] Safety boundary is visible on first screen.
 - [ ] Examples works without `.env` or API keys.

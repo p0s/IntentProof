@@ -7,8 +7,9 @@ requests can be forwarded to imToken for final signing.
 
 Live WalletConnect review defaults to Ethereum mainnet, with Base, Sepolia, and
 Base Sepolia available from the network selector. Examples work on a hosted
-build without environment variables. Users can choose imToken Web, a Local Token
-Core Vault, or a WalletConnect wallet as the signer source. Token Core Lab
+build without environment variables. The default signer source is a
+WalletConnect wallet, such as imToken mobile; users can switch to imToken Web or
+a Local Token Core Vault from the account menu. Token Core Lab
 stays testnet-first, while the Local Token Core Vault can sign DApp requests
 only after IntentProof review and vault unlock. Mainnet local vault signing is
 disabled by default and requires explicit session opt-in.
@@ -76,16 +77,16 @@ wallet credentials, mnemonics, private keys, or generated wallets in `.env`.
 
 Use the main Connect a DApp card as one intake surface: scan a WalletConnect QR,
 paste/upload a QR screenshot, or paste the URI into the same field. IntentProof
-reads the URI in memory, shows a local Connect imToken action if the final
-signer is missing, and then pairs the DApp through IntentProof.
+reads the URI in memory, shows a local connect action if the selected signer is
+missing, and then pairs the DApp through IntentProof.
 
 The companion `/demo-dapp` route is only a small integration example for testing
 custom-wallet routing.
 
 ### Mobile QR flow
 
-Opening IntentProof on a smartphone browser also makes sense: connect imToken as
-the final signer, then use `Scan QR with camera` to scan a WalletConnect QR
+Opening IntentProof on a smartphone browser also makes sense: connect the
+selected final signer, then use `Scan QR with camera` to scan a WalletConnect QR
 shown by a DApp on another screen. If the DApp is on the same phone, use a
 partner/custom wallet route, paste/upload a QR screenshot, or paste the
 WalletConnect URI instead; a phone camera cannot scan a QR that is only on the
@@ -93,8 +94,9 @@ same screen.
 
 ## Product Surface
 
-- Protect Wallet: the primary product screen. Choose imToken Web, Local Token
-  Core Vault, or WalletConnect wallet; connect a DApp; review live requests;
+- Protect Wallet: the primary product screen. Connect a WalletConnect wallet by
+  default, or switch to imToken Web / Local Token Core Vault; connect a DApp;
+  review live requests;
   then forward, sign locally, or reject.
 - Examples: secondary deterministic incoming requests for hosted review:
   safe ERC-20 transfer PASS, unlimited approval BLOCK, WETH wrap PASS/WARN, swap
@@ -177,10 +179,10 @@ IntentProof is derived from the official Token Core CLI demo branch at
 - EVM transaction signing with either EIP-1559 fee fields or legacy `gasPrice`
 - preserved CLI scripts and tests
 
-imToken Web signing uses `@consenlabs/imtoken-connect` as the primary external
-signer path. WalletConnect live mode uses Reown/WalletConnect packages with
-dynamic imports so Examples and Token Core Lab still run when no project id is
-set.
+WalletConnect signing is the default external signer path and uses
+Reown/WalletConnect packages with dynamic imports so Examples and Token Core Lab
+still run when no project id is set. imToken Web signing remains available via
+`@consenlabs/imtoken-connect` as an optional external signer path.
 
 ## Safety Boundaries
 

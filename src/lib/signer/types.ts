@@ -25,6 +25,13 @@ export interface SignerSourceOption {
 
 export const SIGNER_SOURCE_OPTIONS: readonly SignerSourceOption[] = [
   {
+    source: "walletconnect-fallback",
+    title: "WalletConnect wallet",
+    shortLabel: "WalletConnect",
+    description:
+      "Connect imToken mobile or any WalletConnect-compatible final signer.",
+  },
+  {
     source: "imtoken-web",
     title: "imToken Web",
     shortLabel: "imToken Web",
@@ -37,13 +44,6 @@ export const SIGNER_SOURCE_OPTIONS: readonly SignerSourceOption[] = [
     shortLabel: "Local Vault",
     description:
       "Create a local encrypted Token Core vault and sign reviewed requests in this browser.",
-  },
-  {
-    source: "walletconnect-fallback",
-    title: "WalletConnect wallet",
-    shortLabel: "WalletConnect",
-    description:
-      "Connect imToken mobile or any WalletConnect-compatible final signer.",
   },
 ] as const;
 
