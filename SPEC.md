@@ -215,7 +215,8 @@ Properties:
 - support partner/custom wallet routing as a secondary integration path
 - show Request Inbox
 - normalize incoming JSON-RPC requests
-- run parser, decode/analyze evidence, policy compiler, Agent Permission Firewall, address heuristic, and decision engine
+- run parser, transaction-understanding, decode/analyze evidence, policy
+  compiler, Agent Permission Firewall, address heuristic, and decision engine
 - enrich live write requests with a signal stack: verified/local/registry decode
   evidence, optional Alchemy asset-change simulation, and open RPC
   `eth_call`/`estimateGas` dry-run
@@ -223,8 +224,9 @@ Properties:
   non-routine requests after explicit user action. The AI receives only the
   normalized IntentProof review packet, not raw calldata as the source of
   truth, and it never changes policy or forwarding authority.
-- show readable request evidence, unusual signals, evidence confidence, risk
-  level, execution status, and relayability as separate concepts
+- show protocol identity, ABI decode, protocol-specific decode, readable request
+  evidence, unusual signals, evidence confidence, risk level, execution status,
+  and relayability as separate concepts
 - answer routine account, chain, and capability requests locally and move them
   to Activity instead of the primary Request Inbox
 - do not present live requests as simple yes/no, safe/unsafe, or PASS/BLOCK truth
@@ -284,9 +286,12 @@ WalletConnect forwarding.
 - Requests IntentProof cannot mediate are never forwarded.
 - Undecodable mainnet transaction calldata is shown as incomplete evidence and
   requires explicit review before relay.
-- Uniswap Universal Router command streams are decoded where supported. Unknown
-  commands are shown as incomplete route evidence and require explicit review
-  before relay.
+- Selected Keystone ABI metadata and local ABI fallbacks improve method decode
+  but are descriptive data only, not safety proof.
+- Router command streams need protocol decoders in addition to ABI metadata.
+  Uniswap Universal Router V2/V3 routes are decoded where supported. `V4_SWAP`
+  is recognized as a Uniswap V4 swap with partial V4 decode until full route
+  details can be safely displayed.
 
 ### 3.3 Hosted app requirements
 

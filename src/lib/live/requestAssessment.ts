@@ -1,4 +1,5 @@
 import { isMainnetChainKey } from "../chains";
+import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
 import {
   getKnownProtocolContractLabel,
   getProtocolSourceLabel,
@@ -70,6 +71,37 @@ const HIGH_EVIDENCE_SELECTORS = new Set([
   "0xd0e30db0",
 ]);
 
+function evidenceConfidenceFromUnderstanding(request: LiveRequest): EvidenceConfidence {
+  const understanding = understandLiveRequest(request);
+  if (
+    understanding.decodeQuality === "full-protocol-decode" ||
+    (understanding.protocolConfidence === "known" &&
+      (understanding.decodeQuality === "partial-protocol-decode" ||
+        understanding.decodeQuality === "abi-decode"))
+  ) {
+    return "high";
+  }
+  if (
+    understanding.protocolConfidence !== "unknown" ||
+    understanding.decodeQuality === "selector-only" ||
+    understanding.decodeQuality === "abi-decode"
+  ) {
+    return "medium";
+  }
+  return "low";
+}
+
+function executionStatusFromUnderstanding(
+  request: LiveRequest,
+): LiveRequestAssessment["executionStatus"] {
+  const status = understandLiveRequest(request).simulationStatus;
+  if (status === "simulated-no-revert") return "success";
+  if (status === "simulated-revert") return "revert";
+  if (status === "unavailable") return "unavailable";
+  if (status === "pending") return "pending";
+  return "not-applicable";
+}
+
 function calldataSelector(request: LiveRequest) {
   const data = request.tx?.data?.toLowerCase();
   if (!data || data === "0x" || data.length < 10) return undefined;
@@ -89,12 +121,13 @@ export function isRoutineWalletCoordinationRequest(request: LiveRequest) {
 }
 
 function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision) {
-  const reasons: string[] = [];
+  const understanding = understandLiveRequest(request);
+  const reasons: string[] = [...understanding.evidence];
   const knownContract = getKnownProtocolContractLabel(request);
   const knownProtocol = isKnownProtocolRequest(request);
   const decode = request.evidence?.decode;
   const titles = issueTitleSet(decision);
-  let confidence: EvidenceConfidence = "medium";
+  let confidence: EvidenceConfidence = evidenceConfidenceFromUnderstanding(request);
 
   if (isRoutineWalletCoordinationRequest(request)) {
     confidence = "high";
@@ -137,13 +170,17 @@ function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision)
     confidence = "high";
     reasons.push("Approval semantics are decoded clearly enough for policy review.");
   }
-  if (titles.has("Decoded Universal Router route")) {
-    confidence = "high";
-    reasons.push("Universal Router command stream decoded into route evidence.");
+  if (titles.has("Decoded Universal Router route") || titles.has("Partial V4 decode")) {
+    confidence = confidence === "low" ? "medium" : confidence;
+    reasons.push(
+      titles.has("Partial V4 decode")
+        ? "Universal Router V4 command stream is recognized as a partial protocol decode."
+        : "Universal Router command stream decoded into route evidence.",
+    );
   }
-  if (titles.has("Undecodable mainnet calldata") || titles.has("Undecoded Universal Router commands")) {
+  if (titles.has("Undecodable mainnet calldata")) {
     confidence = "low";
-    reasons.push("IntentProof does not fully decode this command stream yet.");
+    reasons.push("IntentProof does not fully decode this mainnet calldata yet.");
   }
   if (SIGNATURE_METHODS.has(request.method)) {
     confidence = knownProtocol ? "high" : "medium";
@@ -164,7 +201,9 @@ function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision)
   return {
     evidenceConfidence: confidence,
     evidenceScore,
-    evidenceReasons: reasons.length ? reasons : ["Request method recognized."],
+    evidenceReasons: reasons.length
+      ? Array.from(new Set(reasons))
+      : ["Request method recognized."],
   };
 }
 
@@ -172,9 +211,19 @@ function riskFromRequest(request: LiveRequest, decision: LivePolicyDecision): {
   riskLevel: RequestRiskLevel;
   riskReasons: string[];
 } {
+  const understanding = understandLiveRequest(request);
   const titles = issueTitleSet(decision);
-  const risks: string[] = [];
-  let riskLevel: RequestRiskLevel = "standard";
+  const risks: string[] = [...understanding.riskReasons];
+  let riskLevel: RequestRiskLevel =
+    understanding.riskLevel === "routine"
+      ? "routine"
+      : understanding.riskLevel === "high-impact-permission"
+        ? "high-impact"
+        : understanding.riskLevel === "blocked" || understanding.riskLevel === "unsupported"
+          ? "blocked"
+          : understanding.riskLevel === "needs-review"
+            ? "needs-review"
+            : "standard";
 
   if (isRoutineWalletCoordinationRequest(request)) {
     return {
@@ -220,12 +269,16 @@ function riskFromRequest(request: LiveRequest, decision: LivePolicyDecision): {
     riskLevel = riskLevel === "standard" ? "needs-review" : riskLevel;
     risks.push("Signature payload should be read by the user before forwarding.");
   }
-  if (titles.has("Decoded Universal Router route") || titles.has("Known Uniswap router")) {
+  if (
+    titles.has("Decoded Universal Router route") ||
+    titles.has("Known Uniswap router") ||
+    titles.has("Partial V4 decode")
+  ) {
     riskLevel = riskLevel === "standard" ? "needs-review" : riskLevel;
     risks.push("Swap route details should be checked before forwarding.");
   }
-  if (titles.has("Undecodable mainnet calldata") || titles.has("Undecoded Universal Router commands")) {
-    riskLevel = "high-impact";
+  if (titles.has("Undecodable mainnet calldata")) {
+    riskLevel = riskLevel === "high-impact" ? "high-impact" : "needs-review";
     risks.push("Mainnet calldata is not fully decoded.");
   }
 
@@ -236,6 +289,9 @@ function riskFromRequest(request: LiveRequest, decision: LivePolicyDecision): {
 }
 
 function sourceConfidence(request: LiveRequest): EvidenceConfidence {
+  const understanding = understandLiveRequest(request);
+  if (understanding.protocolConfidence === "known") return "high";
+  if (understanding.protocolConfidence === "probable") return "medium";
   if (getKnownProtocolContractLabel(request)) return "high";
   if (isKnownProtocolRequest(request)) return "high";
   return "medium";
@@ -265,8 +321,8 @@ export function assessLiveRequest(params: {
   return {
     ...evidence,
     ...risk,
-    executionStatus: request.evidence?.simulation.status ?? "pending",
-    sourceLabel: getProtocolSourceLabel(request),
+    executionStatus: executionStatusFromUnderstanding(request),
+    sourceLabel: understandLiveRequest(request).protocolName || getProtocolSourceLabel(request),
     sourceConfidence: sourceConfidence(request),
     userActionLabel: userActionLabel(request, decision, risk.riskLevel),
   };
@@ -301,6 +357,7 @@ function impactLineFromRequest(request: LiveRequest) {
   if (summary.primaryAmount && summary.recipient) {
     return `${summary.primaryAmount} · recipient ${summary.recipient}`;
   }
+  if (summary.primaryAmount) return summary.primaryAmount;
   if (summary.spender) return `Spender ${summary.spender}`;
   if (summary.recipient) return `Recipient ${summary.recipient}`;
   if (summary.route) return `Route ${summary.route}`;

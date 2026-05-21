@@ -146,7 +146,7 @@ function buildReviewScore(params: {
     if (universalRouterSummary) {
       reasons.push(`Universal Router command stream decoded: ${universalRouterSummary}`);
     } else if (isKnownUniswapUniversalRouterCall(request)) {
-      reasons.push("Universal Router command stream is not decoded by IntentProof.");
+      reasons.push("Universal Router command stream is recognized by IntentProof.");
     } else if (isKnownUniswapRouterCall(request)) {
       reasons.push("Target is a known Uniswap router with a recognized swap entrypoint.");
     } else if (!hasUnknownCalldata(request)) {
@@ -220,12 +220,10 @@ function buildReviewScore(params: {
   let confidence: LivePolicyDecision["score"]["confidence"] = "high";
   const hasDecodedKnownSwapRoute =
     Boolean(universalRouterSummary) || isKnownUniswapExactInputSingleCall(request);
-  if (
-    titles.includes("Undecodable mainnet calldata") ||
-    titles.includes("Undecoded Universal Router commands") ||
-    evidence?.simulation.status === "revert"
-  ) {
+  if (titles.includes("Undecodable mainnet calldata")) {
     confidence = "low";
+  } else if (titles.includes("Partial V4 decode") || evidence?.simulation.status === "revert") {
+    confidence = "medium";
   } else if (
     request.method === "eth_sendTransaction" &&
     evidence &&
@@ -360,6 +358,14 @@ export function evaluateLiveRequestPolicy(params: {
             ),
           );
         }
+      } else if (universalRouterPlan?.hasPartialProtocolDecode) {
+        issues.push(
+          issue(
+            "warn",
+            "Partial V4 decode",
+            `${universalRouterPlan.summary}. IntentProof recognizes this as a Uniswap V4 swap but does not fully decode every V4 route detail yet. Verify token in/out, minimum received, recipient, and value in the connected wallet.`,
+          ),
+        );
       } else {
         const unsupported = universalRouterPlan?.unsupportedCommandNames.join(", ");
         issues.push(
@@ -428,6 +434,8 @@ export function evaluateLiveRequestPolicy(params: {
     severity,
     universalRouterSummary: universalRouterPlan?.supported
       ? universalRouterPlan.summary
+      : universalRouterPlan?.hasPartialProtocolDecode
+        ? universalRouterPlan.summary
       : undefined,
   });
   return {

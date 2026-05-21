@@ -31,6 +31,11 @@ export const uniswapV3SwapRouterAbi = parseAbi([
   "function WETH9() view returns (address)",
 ]);
 
+export const uniswapUniversalRouterAbi = parseAbi([
+  "function execute(bytes commands, bytes[] inputs)",
+  "function execute(bytes commands, bytes[] inputs, uint256 deadline)",
+]);
+
 export const uniswapV3FactoryAbi = parseAbi([
   "function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)",
 ]);
@@ -54,6 +59,7 @@ export const commonAbiCandidates = [
   wethAbi,
   uniswapV2RouterAbi,
   uniswapV3SwapRouterAbi,
+  uniswapUniversalRouterAbi,
   lidoStEthAbi,
 ];
 
@@ -70,5 +76,7 @@ export const selectorLabelMap: Record<string, string> = {
     "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
   "0x414bf389":
     "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+  "0x24856bc3": "execute(bytes,bytes[])",
+  "0x3593564c": "execute(bytes,bytes[],uint256)",
   "0xa1903eab": "submit(address)",
 };

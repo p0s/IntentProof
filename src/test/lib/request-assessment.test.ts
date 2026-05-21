@@ -8,7 +8,10 @@ import {
 import { evaluateLiveRequestPolicy } from "../../lib/live/livePolicyBridge";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import type { LiveRequest } from "../../lib/live/types";
-import { buildUniversalRouterV3ExactInCalldata } from "./uniswap-universal-router-fixtures";
+import {
+  buildUniversalRouterUnsupportedV4Calldata,
+  buildUniversalRouterV3ExactInCalldata,
+} from "./uniswap-universal-router-fixtures";
 
 function decisionFor(request: LiveRequest, warningAcknowledged = false) {
   return evaluateLiveRequestPolicy({
@@ -110,9 +113,36 @@ describe("live request assessment", () => {
       decision: decisionFor(request),
     });
 
-    expect(assessment.evidenceConfidence).toBe("medium");
+    expect(assessment.evidenceConfidence).toBe("high");
     expect(assessment.riskLevel).toBe("needs-review");
     expect(assessment.riskReasons.join(" ")).toMatch(/Mainnet/i);
+  });
+
+  it("treats Uniswap V4 partial decode as recognized evidence without high-impact permission", () => {
+    const request = normalizeLiveRequest({
+      id: "uniswap-v4",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: "0x1",
+          data: buildUniversalRouterUnsupportedV4Calldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const assessment = assessLiveRequest({
+      request,
+      decision: decisionFor(request),
+    });
+
+    expect(assessment.sourceLabel).toBe("Uniswap");
+    expect(assessment.evidenceConfidence).not.toBe("low");
+    expect(assessment.riskLevel).toBe("needs-review");
+    expect(assessment.riskReasons.join(" ")).not.toMatch(/permission/i);
   });
 
   it("marks unlimited approvals as high-impact when the approval is decoded", () => {

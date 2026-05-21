@@ -607,7 +607,7 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/^WARN$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^BLOCK$/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Request Inbox")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review inbox" })).toBeInTheDocument();
     const requestInbox = screen.getByRole("heading", { name: "Request Inbox" }).closest("section");
     expect(requestInbox).not.toBeNull();
@@ -748,10 +748,10 @@ describe("App smoke test", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Uniswap.*Swap transaction.*Needs review.*Ethereum Mainnet/i,
+        name: /Uniswap.*Swap 10 USDC.*Needs review.*Ethereum Mainnet/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Swap transaction (eth_sendTransaction)")).toBeInTheDocument();
+    expect(screen.getByText(/Swap 10 USDC.*eth_sendTransaction/i)).toBeInTheDocument();
     expect(screen.getByText("Decoded Universal Router route")).toBeInTheDocument();
     expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
@@ -835,7 +835,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getAllByText("Recognized").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
 
     expect(signer.forwarded).toBe(1);
@@ -865,12 +865,12 @@ describe("App smoke test", () => {
     );
 
     expect(screen.getAllByText("Switch to Ethereum Mainnet").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Known DApp").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.queryByText("Blocked")).not.toBeInTheDocument();
     expect(screen.getByText(/No transaction or message signature is requested/i)).toBeInTheDocument();
     expect(
-      screen.getByText("Network switch request (wallet_switchEthereumChain)"),
+      screen.getByText("Switch to Ethereum Mainnet (wallet_switchEthereumChain)"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Connect imToken Web" }));
     await waitFor(() =>

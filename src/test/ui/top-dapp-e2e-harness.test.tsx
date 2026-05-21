@@ -212,7 +212,7 @@ describe("top dapp WalletConnect E2E harness", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Curve.*USDC approval.*High-impact permission/i,
+        name: /Curve.*Approve USDC spending.*High-impact permission/i,
       }),
     );
     expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
@@ -242,7 +242,7 @@ describe("top dapp WalletConnect E2E harness", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Sushi.*USDC approval.*Needs review/i,
+        name: /Sushi.*Approve USDC spending.*Needs review/i,
       }),
     );
     await user.click(

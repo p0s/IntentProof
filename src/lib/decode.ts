@@ -233,6 +233,37 @@ function buildKnownContractStatus(address: Address, chainKey: DemoChainKey) {
     } satisfies ContractVerificationStatus;
   }
 
+  const universalRouterAddresses = [
+    chain.uniswap.universalRouter,
+    ...(chain.uniswap.universalRouterAliases ?? []),
+  ].filter((item): item is Address => Boolean(item));
+  if (
+    universalRouterAddresses.some(
+      (routerAddress) => routerAddress.toLowerCase() === address.toLowerCase(),
+    )
+  ) {
+    return {
+      verified: true,
+      source: "local",
+      abi: commonAbiCandidates[4],
+      contractName: "Uniswap Universal Router",
+      message: "命中內建 Uniswap Universal Router 設定。",
+    } satisfies ContractVerificationStatus;
+  }
+
+  if (
+    chainKey === "ethereum" &&
+    address.toLowerCase() === "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+  ) {
+    return {
+      verified: true,
+      source: "local",
+      abi: commonAbiCandidates[5],
+      contractName: "Lido stETH",
+      message: "命中內建 Lido stETH 設定。",
+    } satisfies ContractVerificationStatus;
+  }
+
   return null;
 }
 

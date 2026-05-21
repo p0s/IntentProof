@@ -93,6 +93,13 @@ _Last updated: 2026-05-20_
   execution/simulation status, and required user action. Known DApp or decoded
   protocol evidence can be high confidence even when the request still needs
   user review.
+- [x] Added a general transaction-understanding layer that separates protocol
+  identity, ABI decode, protocol-specific decode, asset authority, user risk,
+  simulation status, and user-facing summary.
+- [x] Protocol decoders cover Uniswap Universal Router, ERC-20 approvals,
+  Permit2, Lido staking, signatures, and network coordination. Uniswap V4
+  `V4_SWAP` is recognized as a partial V4 decode instead of an unknown or
+  source-not-profiled request.
 - [x] Request evidence includes decode evidence, protocol profiles, optional
   server-side Tenderly simulation, optional Alchemy asset-change simulation,
   open RPC dry-run simulation, gas estimate evidence, and explicit
@@ -146,6 +153,8 @@ _Last updated: 2026-05-20_
 - [x] Compact offline ABI registry generated for selected Ethereum mainnet
   contracts to improve readable calldata decoding without changing policy
   trust decisions.
+- [x] ABI lookup order preserves verified Explorer/Sourcify ABI, then selected
+  Keystone metadata, then local/common ABI fallbacks and selector labels.
 
 ## Documentation
 
@@ -178,7 +187,7 @@ _Last updated: 2026-05-20_
 
 - `npm run lint` PASS.
 - `npm run typecheck` PASS.
-- `npm run test:unit` PASS - 37 files, 243 tests.
+- `npm run test:unit` PASS - 41 files, 264 tests.
 - `npm run test:cli` PASS - 4 files, 37 tests.
 - `npm run test:smoke:chains` PASS - 1 file, 7 tests.
 - `npm run test:ui` PASS - 4 files, 35 tests.

@@ -271,7 +271,7 @@ describe("live policy bridge", () => {
     )).toBe(true);
   });
 
-  it("warn-gates unsupported Uniswap Universal Router command streams", () => {
+  it("warn-gates partially decoded Uniswap V4 Universal Router command streams", () => {
     const request = normalizeLiveRequest({
       id: "uniswap-v4",
       origin: "app.uniswap.org",
@@ -296,11 +296,12 @@ describe("live policy bridge", () => {
     expect(decision.label).toBe("WARN");
     expect(decision.canForward).toBe(true);
     expect(decision.issues.map((item) => item.title)).toContain(
-      "Undecoded Universal Router commands",
+      "Partial V4 decode",
     );
     expect(decision.issues.map((item) => item.description).join(" ")).toContain(
-      "V4_SWAP",
+      "Uniswap V4 swap",
     );
+    expect(decision.score.confidence).toBe("medium");
   });
 
   it("keeps exactInputSingle router calls warning-gated when selector is readable", () => {

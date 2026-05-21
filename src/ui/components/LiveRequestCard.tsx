@@ -6,6 +6,7 @@ import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
 import { describeLiveRequestMethod } from "../../lib/live/requestDisplay";
 import { isReadOnlyLiveRpcMethod } from "../../lib/live/rpcProxy";
+import { understandLiveRequest } from "../../lib/txUnderstanding/understandLiveRequest";
 import { MainnetGuard } from "./MainnetGuard";
 
 interface LiveRequestCardProps {
@@ -150,6 +151,7 @@ export function LiveRequestCard({
   const assessment = assessLiveRequest({ request, decision });
   const presentation = presentWalletRequest({ request, decision });
   const semanticSummary = summarizeLiveRequest(request);
+  const understanding = understandLiveRequest(request);
   const forwardButtonLabel = coordinationRequest
     ? "Answer locally"
     : forwardTargetLabel === "Local Token Core Vault"
@@ -188,11 +190,48 @@ export function LiveRequestCard({
         </div>
       </section>
       <MainnetGuard request={request} />
-      <section className="impact-grid" aria-label="Request impact">
+      <section className="impact-grid" aria-label="What can change">
         <div>
-          <span>Impact</span>
+          <span>What can change</span>
           <strong>{presentation.impactLine}</strong>
         </div>
+        {understanding.valueSummary ? (
+          <div>
+            <span>Native value</span>
+            <strong>{understanding.valueSummary}</strong>
+          </div>
+        ) : null}
+        {understanding.assetAuthorityKind === "none" ? (
+          <div>
+            <span>Token permission</span>
+            <strong>No approval detected</strong>
+          </div>
+        ) : null}
+        {understanding.actionKind === "swap" &&
+        understanding.assetAuthorityKind !== "permit2" &&
+        understanding.assetAuthorityKind !== "unlimited-token-approval" ? (
+          <div>
+            <span>Permit2 / approval</span>
+            <strong>No Permit2 permission detected</strong>
+          </div>
+        ) : null}
+        {understanding.assetAuthorityKind === "permit2" ? (
+          <div>
+            <span>Permit2</span>
+            <strong>{understanding.spender ? `Spender ${understanding.spender}` : "Permit2 authority detected"}</strong>
+          </div>
+        ) : null}
+        {understanding.assetAuthorityKind === "unlimited-token-approval" ||
+        understanding.assetAuthorityKind === "limited-token-approval" ? (
+          <div>
+            <span>Token permission</span>
+            <strong>
+              {understanding.assetAuthorityKind === "unlimited-token-approval"
+                ? "Unlimited approval"
+                : "Limited approval"}
+            </strong>
+          </div>
+        ) : null}
         {semanticSummary.primaryAmount ? (
           <div>
             <span>Amount</span>
@@ -231,6 +270,13 @@ export function LiveRequestCard({
           <span className="eyebrow">IntentProof result</span>
           <strong>{presentation.statusLabel}</strong>
           <p>{decision.summary}</p>
+          {understanding.decodeQuality === "partial-protocol-decode" ? (
+            <p>
+              {understanding.actionKind === "swap"
+                ? "Recognized protocol flow with partial route decoding. Verify the missing route details in the connected wallet."
+                : "Recognized request with partial decode evidence."}
+            </p>
+          ) : null}
         </div>
         <ul>
           {(decision.issues.length

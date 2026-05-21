@@ -36,7 +36,7 @@ describe("Uniswap Universal Router decoder", () => {
     expect(decoded?.summary).not.toContain("raw units");
   });
 
-  it("marks unsupported command streams as not supported", () => {
+  it("recognizes V4 command streams as partial protocol decodes", () => {
     const request = normalizeLiveRequest({
       id: "uniswap-v4",
       origin: "app.uniswap.org",
@@ -55,6 +55,9 @@ describe("Uniswap Universal Router decoder", () => {
     const decoded = decodeUniversalRouterRequest(request);
 
     expect(decoded?.supported).toBe(false);
+    expect(decoded?.hasPartialProtocolDecode).toBe(true);
+    expect(decoded?.partialCommandNames).toContain("V4_SWAP");
     expect(decoded?.unsupportedCommandNames).toContain("V4_SWAP");
+    expect(decoded?.summary).toContain("Recognized Uniswap V4 swap");
   });
 });

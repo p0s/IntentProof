@@ -62,7 +62,17 @@ Narration:
 Mainnet requests show a compact warning. This request asks for unlimited USDC approval, so IntentProof keeps evidence confidence separate from high-impact risk and requires explicit review before any relay or local vault signing.
 ```
 
-### 55-64s - Signature Review
+### 55-64s - Transaction Understanding
+
+Show a Uniswap or Lido request in the inbox.
+
+Narration:
+
+```text
+IntentProof combines ABI metadata, protocol decoders, simulation, policy, and optional local AI. ABI decode explains the method, while protocol decoders explain router commands such as Uniswap swaps and Lido staking.
+```
+
+### 64-72s - Signature Review
 
 Select the typed-data request.
 
@@ -72,7 +82,7 @@ Narration:
 Human-readable signatures require user review. IntentProof shows the payload and waits for acknowledgement before sending it to imToken.
 ```
 
-### 64-76s - Examples
+### 72-82s - Examples
 
 Open Examples and run example checks.
 
@@ -82,7 +92,7 @@ Narration:
 Examples show five deterministic outcomes without API keys: safe transfer, unlimited approval, WETH wrap, swap policy, and bridge or chain mismatch.
 ```
 
-### 76-86s - Token Core Lab
+### 82-90s - Token Core Lab
 
 Show the Local Token Core Vault card, then open Token Core Lab and show collapsed local Token Core controls.
 

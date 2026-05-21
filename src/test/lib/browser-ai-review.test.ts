@@ -67,6 +67,8 @@ describe("browser AI transaction review", () => {
     expect(packet.requestSource).toBe("demo.vendor.example");
     expect(packet.method).toBe("eth_sendTransaction");
     expect(packet.decodedFunction).toBe("transfer");
+    expect(packet.hasExplicitUserIntent).toBe(false);
+    expect(packet.understanding.actionKind).toBe("transfer");
     expect(packet.isUnlimitedApproval).toBe(false);
     expect(packet.policyDecision).toBe(decision.label);
     expect(JSON.stringify(packet)).not.toContain(request!.tx!.data!.slice(10));
@@ -192,10 +194,11 @@ describe("browser AI transaction review", () => {
       packet,
     });
 
-    expect(review.headline).toBe("Review generated from normalized evidence");
+    expect(review.headline).toContain("token transfer");
     expect(review.plainEnglishSummary).toContain(
       "Local model note: Check that the transfer amount",
     );
+    expect(review.userIntentMatch).toBe("unclear");
     expect(review.plainEnglishSummary).toContain("advisory fallback");
     expect(review.questionsToAskBeforeSigning.join(" ")).toContain("recognize this DApp");
     expect(webLlmMocks.createCompletion).toHaveBeenCalledTimes(2);
@@ -256,7 +259,7 @@ describe("browser AI transaction review", () => {
       BROWSER_AI_MODEL_OPTIONS.map((model) => model.id),
     );
     for (const [index, review] of results.entries()) {
-      expect(review.headline).toBe("Review generated from normalized evidence");
+      expect(review.headline).toContain("token transfer");
       expect(review.plainEnglishSummary).toContain(BROWSER_AI_MODEL_OPTIONS[index]!.label);
       expect(review.plainEnglishSummary).not.toContain("Try again or choose another local model");
     }

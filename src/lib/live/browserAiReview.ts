@@ -1,6 +1,8 @@
 import { formatUnits } from "viem";
 
 import { getChainConfig } from "../chains";
+import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
+import type { TransactionUnderstanding } from "../txUnderstanding/types";
 import type {
   LiveAssetChangeEvidence,
   LivePolicyDecision,
@@ -11,6 +13,7 @@ export interface AiTransactionReviewPacket {
   mode: "preview" | "testnet" | "live";
   requestSource: string;
   userIntent: string;
+  hasExplicitUserIntent: boolean;
   chain: string;
   isMainnet: boolean;
   method: string;
@@ -37,6 +40,7 @@ export interface AiTransactionReviewPacket {
   blockers: string[];
   simulationAvailable: boolean;
   assetDeltaSummary?: string;
+  understanding: Omit<TransactionUnderstanding, "advanced">;
 }
 
 export interface AiTransactionReview {
@@ -273,6 +277,8 @@ export function buildAiTransactionReviewPacket(params: {
   userIntent?: string;
 }): AiTransactionReviewPacket {
   const { request, decision } = params;
+  const understanding = understandLiveRequest(request);
+  const explicitIntent = params.userIntent?.trim();
   const selector = calldataSelector(request.tx?.data);
   const warnings = issueText(decision, "warn");
   const blockers = issueText(decision, "block");
@@ -298,9 +304,9 @@ export function buildAiTransactionReviewPacket(params: {
   return {
     mode: params.mode,
     requestSource: request.origin,
-    userIntent:
-      params.userIntent?.trim() ||
+    userIntent: explicitIntent ||
       "No explicit natural-language intent was provided for this live DApp request.",
+    hasExplicitUserIntent: Boolean(explicitIntent),
     chain: request.chain.label,
     isMainnet: chain.environment === "mainnet",
     method: request.method,
@@ -322,6 +328,30 @@ export function buildAiTransactionReviewPacket(params: {
       request.evidence?.simulation.status === "success" ||
       request.evidence?.simulation.status === "revert",
     assetDeltaSummary: assetDeltaSummary(request.evidence?.simulation.assetChanges),
+    understanding: {
+      protocolName: understanding.protocolName,
+      protocolConfidence: understanding.protocolConfidence,
+      contractLabel: understanding.contractLabel,
+      actionKind: understanding.actionKind,
+      actionTitle: understanding.actionTitle,
+      userSummary: understanding.userSummary,
+      valueSummary: understanding.valueSummary,
+      tokenIn: understanding.tokenIn,
+      tokenOut: understanding.tokenOut,
+      amountIn: understanding.amountIn,
+      minAmountOut: understanding.minAmountOut,
+      spender: understanding.spender,
+      recipient: understanding.recipient,
+      router: understanding.router,
+      signatureDomain: understanding.signatureDomain,
+      decodeQuality: understanding.decodeQuality,
+      assetAuthorityKind: understanding.assetAuthorityKind,
+      riskLevel: understanding.riskLevel,
+      riskReasons: understanding.riskReasons,
+      userChecks: understanding.userChecks,
+      simulationStatus: understanding.simulationStatus,
+      evidence: understanding.evidence,
+    },
   };
 }
 
@@ -425,9 +455,11 @@ function fallbackReviewFromPacket(
   const fallbackReason = userFacingFallbackReason(reason);
 
   return {
-    headline: "Review generated from normalized evidence",
-    plainEnglishSummary: `${summaryParts.join(" ")}${modelNote} IntentProof produced this advisory fallback from the same normalized packet because ${fallbackReason}`,
-    userIntentMatch: packet.userIntent.startsWith("No explicit")
+    headline: packet.understanding.actionTitle
+      ? `${packet.understanding.protocolName}: ${packet.understanding.actionTitle}`
+      : "Review generated from normalized evidence",
+    plainEnglishSummary: `${packet.understanding.userSummary} ${summaryParts.join(" ")}${modelNote} IntentProof produced this advisory fallback from the same normalized packet because ${fallbackReason}`,
+    userIntentMatch: !packet.hasExplicitUserIntent
       ? "unclear"
       : packet.policyDecision === "BLOCK"
         ? "does_not_match"
@@ -451,7 +483,7 @@ function fallbackReviewFromPacket(
         : "Do the amount, recipient, and method match what you expected?",
     ],
     whyPolicyDecisionMakesSense: normalizeReviewText(
-      packet.policyReasons[0] ?? "",
+      packet.understanding.riskReasons[0] ?? packet.policyReasons[0] ?? "",
       "IntentProof keeps deterministic policy and wallet review as the authority.",
     ),
     scamPatternHints: [
@@ -460,9 +492,13 @@ function fallbackReviewFromPacket(
         : "Unexpected target addresses, unreadable calldata, and unsolicited signature prompts are common wallet-risk signals.",
     ],
     confidence:
-      packet.blockers.length || packet.warnings.length || !packet.simulationAvailable
+      packet.understanding.decodeQuality === "unknown" || packet.blockers.length
         ? "low"
-        : "medium",
+        : packet.understanding.decodeQuality === "partial-protocol-decode" ||
+            packet.warnings.length ||
+            !packet.simulationAvailable
+          ? "medium"
+          : "high",
   };
 }
 
@@ -614,7 +650,10 @@ export async function runBrowserAiTransactionReview(params: {
         role: "user",
         content: [
           "Review the normalized IntentProof packet below.",
-          "Use only decoded fields, policy reasons, warnings, blockers, and simulation summaries from the packet.",
+          "Use the transactionUnderstanding object as the source of truth for protocol, action, decode quality, asset authority, and risk.",
+          "Use decoded fields, policy reasons, warnings, blockers, and simulation summaries only as supporting evidence.",
+          "If hasExplicitUserIntent is false, userIntentMatch must be unclear. Do not infer mismatch from missing user intent.",
+          "Do not call a recognized standard swap malicious only because it is mainnet or simulation is unavailable.",
           "Return JSON with these exact keys: headline, plainEnglishSummary, userIntentMatch, mainRisks, questionsToAskBeforeSigning, whyPolicyDecisionMakesSense, scamPatternHints, confidence.",
           `Allowed userIntentMatch values: matches, partially_matches, does_not_match, unclear.`,
           `Allowed confidence values: low, medium, high.`,

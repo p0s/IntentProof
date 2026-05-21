@@ -1,4 +1,5 @@
 import type { LiveRequest } from "./types";
+import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
 
 const SELECTOR_LABELS: Record<string, string> = {
   "0x095ea7b3": "Token approval",
@@ -14,6 +15,10 @@ function selector(data?: string) {
 }
 
 export function describeLiveRequestAction(request: LiveRequest) {
+  const understanding = understandLiveRequest(request);
+  if (understanding.actionTitle && understanding.actionKind !== "unknown") {
+    return understanding.actionTitle;
+  }
   if (request.method === "eth_sendTransaction") {
     return SELECTOR_LABELS[selector(request.tx?.data) ?? ""] ?? "Transaction request";
   }

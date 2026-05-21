@@ -100,9 +100,13 @@ Ethereum is the default live network, and mainnet requests show a clear warning.
 imToken Web and WalletConnect wallet keep custody in the external signer.
 Local Token Core Vault mainnet signing is disabled by default and requires
 explicit session opt-in, vault unlock, acknowledgement, and a non-blocked
-request. Undecoded calldata and Universal Router command streams are shown as
-incomplete evidence and require explicit review before relay. Direct
-DApp-to-imToken sessions bypass IntentProof.
+request. IntentProof now uses a transaction-understanding layer that separates
+protocol identity, ABI decode, protocol-specific decode, risk, and simulation
+status. Selected Keystone ABI metadata and local ABI fallbacks improve method
+decode, while protocol decoders handle nested flows such as Uniswap Universal
+Router, ERC-20 approvals, Permit2, Lido staking, signatures, and network
+switches. Uniswap V4 swaps are recognized as partial V4 decodes until full route
+details are available. Direct DApp-to-imToken sessions bypass IntentProof.
 
 Remote AI parsing and summaries are off by default in the browser. If local
 provider keys are configured, the user must opt in for the session before
@@ -145,6 +149,8 @@ review packet instead of raw calldata, and never changes forwarding authority.
 - Unusual or incomplete evidence requires acknowledgement.
 - Evidence confidence is separate from transaction risk and execution status.
 - Known DApp does not mean automatically safe.
+- ABI registry metadata is descriptive only; it is never a safety oracle and
+  never downgrades a policy warning or block.
 - Routine account, chain, and capability requests are answered locally and
   moved to Activity.
 - Mainnet forwarding shows a warning.
@@ -167,11 +173,13 @@ output is normalized by deterministic code. AI output never authorizes calldata
 or signing by itself.
 
 For live DApp requests, optional WebLLM review runs fully in the browser. The
-AI input is a compact packet containing decoded function, chain, method,
-policy decision/reasons, warnings, blockers, simulation availability, and asset
-delta summary. It is advisory: it can suggest questions and scam-pattern hints,
-but deterministic policy, Token Core evidence, and imToken final review remain
-authoritative.
+AI input is a compact packet containing the deterministic
+transaction-understanding result, decoded function, chain, method, policy
+decision/reasons, warnings, blockers, simulation availability, and asset delta
+summary. If no user-stated intent exists, the AI must mark intent as unclear
+rather than inventing a mismatch. It is advisory: it can suggest questions and
+scam-pattern hints, but deterministic policy, Token Core evidence, and imToken
+final review remain authoritative.
 
 Users can run local AI on a selected request or batch-review all open
 non-routine requests. The result never changes forwarding gates.

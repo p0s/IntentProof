@@ -7,6 +7,7 @@ import {
 } from "viem";
 
 import { getChainConfig, getChainKeyById } from "../chains";
+import { understandLiveRequest } from "../txUnderstanding/understandLiveRequest";
 import type { DemoChainKey } from "../types";
 import { getKnownProtocolContractLabel, getProtocolSourceLabel } from "./protocolProfiles";
 import type { LiveRequest } from "./types";
@@ -28,6 +29,66 @@ export interface LiveSemanticSummary {
   spender?: string;
   route?: string;
   chips: string[];
+}
+
+function summaryFromUnderstanding(request: LiveRequest): LiveSemanticSummary {
+  const understanding = understandLiveRequest(request);
+  const chips = [
+    understanding.protocolName,
+    understanding.protocolConfidence === "known"
+      ? "Recognized protocol"
+      : understanding.protocolConfidence === "probable"
+        ? "Known DApp"
+        : "Unprofiled source",
+    understanding.actionKind === "network-switch" ? "Network switch" : undefined,
+    understanding.protocolName === "Lido" ? "stETH" : undefined,
+    understanding.decodeQuality === "partial-protocol-decode" &&
+    understanding.actionKind === "swap"
+      ? "Partial V4 decode"
+      : understanding.decodeQuality
+          .split("-")
+          .map((part) => part[0]!.toUpperCase() + part.slice(1))
+          .join(" "),
+    understanding.assetAuthorityKind === "unlimited-token-approval"
+      ? "Unlimited approval"
+      : understanding.assetAuthorityKind === "limited-token-approval"
+        ? "Limited approval"
+        : understanding.assetAuthorityKind === "permit2"
+          ? "Permit2"
+          : understanding.assetAuthorityKind === "signature-authority"
+            ? "Signature"
+            : request.chain.label,
+  ];
+
+  return {
+    title: understanding.actionTitle,
+    subtitle: `${understanding.protocolName} on ${request.chain.label}`,
+    whatItWants:
+      understanding.actionKind === "approval"
+        ? `Allow ${understanding.protocolName} or its spender contract to spend ${understanding.tokenIn ?? "this token"} from this wallet. Amount: ${understanding.amountIn ?? "unknown"}.`
+        : understanding.userSummary,
+    whyDappNeedsIt:
+      understanding.actionKind === "swap"
+        ? "Routers can combine swaps, native value, Permit2, wrapping, and cleanup commands into one transaction."
+        : understanding.actionKind === "approval"
+          ? "DApps request token permissions before they can move ERC-20 tokens for swaps, deposits, or repayments."
+        : understanding.actionKind === "signature"
+            ? "DApps use signatures for login, authorization, orders, or off-chain approvals."
+            : understanding.actionKind === "unknown"
+              ? "IntentProof can show target, value, selector, and payload size, but this request is not fully decoded yet."
+              : undefined,
+    userShouldCheck: understanding.userChecks,
+    primaryAmount: understanding.amountIn ?? understanding.valueSummary,
+    tokenIn: understanding.tokenIn,
+    tokenOut: understanding.tokenOut,
+    recipient: understanding.recipient,
+    spender: understanding.spender,
+    route:
+      understanding.tokenIn && understanding.tokenOut
+        ? `${understanding.tokenIn} → ${understanding.tokenOut}`
+        : undefined,
+    chips: Array.from(new Set(chips.filter((chip): chip is string => Boolean(chip)))),
+  };
 }
 
 const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
@@ -466,6 +527,8 @@ function summarizeKnownContractFallback(request: LiveRequest): LiveSemanticSumma
 }
 
 export function summarizeLiveRequest(request: LiveRequest): LiveSemanticSummary {
+  const understood = summaryFromUnderstanding(request);
+  if (understood) return understood;
   return (
     summarizeCoordination(request) ??
     summarizeNetworkSwitch(request) ??

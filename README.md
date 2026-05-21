@@ -42,6 +42,7 @@ without secrets.
 ```text
 .
 |-- src/lib/live/                  # WalletConnect request/firewall bridge
+|-- src/lib/txUnderstanding/       # protocol identity, ABI, and protocol decoders
 |-- src/lib/intentproof/           # parser, compiler, policies, activity
 |-- src/ui/screens/                # Protect Wallet and secondary support tools
 |-- src/ui/components/             # WalletConnect and signing UI pieces
@@ -112,31 +113,42 @@ same screen.
 
 ## Live Rating Evidence
 
-IntentProof now separates evidence quality from transaction risk. A known DApp
-or decoded contract can show high evidence confidence while still needing user
-review because it is mainnet, high-impact, or simulated to revert.
+IntentProof now separates protocol identity, ABI decode, protocol-specific
+decode, transaction risk, and execution status. A known DApp or decoded contract
+can show high evidence confidence while still needing user review because it is
+mainnet, high-impact, or simulated to revert.
 
 Evidence comes from deterministic signals: calldata decode evidence,
-contract/source evidence, known protocol profiles, policy checks, Uniswap route
-decode where supported, optional Alchemy asset-change simulation, and open RPC
-`eth_call`/`estimateGas` dry-runs. Risk is shown separately as routine,
-standard, needs review, high impact, or blocked. Execution is shown separately
-as success, revert, unavailable, pending, or not applicable.
+contract/source evidence, selected Keystone ABI metadata, local ABI fallbacks,
+known protocol profiles, protocol decoders, policy checks, optional Alchemy
+asset-change simulation, and open RPC `eth_call`/`estimateGas` dry-runs. Risk is
+shown separately as routine, standard, needs review, high-impact permission, or
+blocked. Execution is shown separately as success, revert, unavailable, pending,
+or not applicable.
+
+ABI registries help with method-level calldata decoding, but routers such as
+Uniswap Universal Router also have nested command languages. IntentProof uses
+protocol decoder plugins for Uniswap Universal Router, ERC-20 approvals,
+Permit2, Lido, signatures, and network coordination. Uniswap V2/V3 Universal
+Router routes are decoded into route evidence. Uniswap V4 `V4_SWAP` is
+recognized as a Uniswap swap with partial V4 decode until every nested V4 route
+detail can be safely displayed; this does not turn the request into a
+high-impact permission unless an approval or Permit2 authority is present.
 
 Routine wallet coordination requests such as account, chain, and capability
 checks are answered locally and recorded in Activity instead of cluttering the
 primary Request Inbox. Unsupported methods or chains remain unrelayable.
 
 The Request Inbox also includes optional local AI review. It uses WebLLM in the
-browser after the user clicks `Run local AI check` or `Review all open requests
-with local AI`, with model options kept under 1 GB: SmolLM2 360M, TinyLlama
-1.1B 1k, and Qwen2.5 0.5B. The local model receives only IntentProof's
-normalized review packet: decoded function, chain, policy reasons, warnings,
-blockers, and simulation summary. It does not receive wallet secrets, and it is
-not allowed to make requests forwardable. Users can delete the downloaded local
-AI model files from the Request Inbox. That clears WebLLM model cache entries
-only; it does not touch local vaults, receipts, WalletConnect sessions, or app
-settings.
+browser after the user clicks `Review selected` or `Review inbox`, with model
+options kept under 1 GB: SmolLM2 360M, TinyLlama 1.1B 1k, and Qwen2.5 0.5B. The
+local model receives only IntentProof's normalized review packet, including the
+deterministic transaction-understanding result. It does not receive wallet
+secrets, and it is not allowed to make requests forwardable. If no explicit user
+intent exists for a live DApp request, AI review must say intent is unclear
+rather than inventing a mismatch. Users can delete downloaded local AI model
+files from the Request Inbox. That clears WebLLM model cache entries only; it
+does not touch local vaults, receipts, WalletConnect sessions, or app settings.
 
 ## Token Core Usage
 

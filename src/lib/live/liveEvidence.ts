@@ -20,6 +20,7 @@ import type {
   LiveRequestEvidence,
   LiveSimulationEvidence,
 } from "./types";
+import { decodeUniversalRouterRequest } from "./uniswapUniversalRouter";
 
 function hexToBigIntValue(value: Hex | undefined) {
   if (!value || value === "0x") return undefined;
@@ -290,6 +291,7 @@ async function buildDecodeEvidence(request: LiveRequest): Promise<LiveDecodeEvid
       parsed,
       verification,
     );
+    const universalRouterPlan = decodeUniversalRouterRequest(request);
     const status =
       action.decodeSource === "selector"
         ? "selector"
@@ -299,14 +301,21 @@ async function buildDecodeEvidence(request: LiveRequest): Promise<LiveDecodeEvid
             ? "decoded"
             : "unknown";
     return {
-      status,
+      status: universalRouterPlan ? "decoded" : status,
       source:
         action.kind === "nativeTransfer"
           ? "native"
           : action.decodeSource ?? "none",
-      summary: action.summary,
-      functionName: action.functionName,
-      functionSignature: action.functionSignature,
+      summary: universalRouterPlan
+        ? universalRouterPlan.hasPartialProtocolDecode
+          ? `Uniswap Universal Router partial protocol decode: ${universalRouterPlan.summary}`
+          : `Uniswap Universal Router protocol decode: ${universalRouterPlan.summary}`
+        : action.summary,
+      functionName: universalRouterPlan ? "execute" : action.functionName,
+      functionSignature:
+        universalRouterPlan
+          ? "execute(bytes,bytes[]) / execute(bytes,bytes[],uint256)"
+          : action.functionSignature,
       contractVerified: verification.verified,
       contractSource: verification.source,
     };

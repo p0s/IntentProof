@@ -12,6 +12,7 @@ import {
 } from "../../lib/live/requestAssessment";
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveReceipt, LiveRequest } from "../../lib/live/types";
+import { understandLiveRequest } from "../../lib/txUnderstanding/understandLiveRequest";
 
 interface RequestInboxProps {
   requests: LiveRequest[];
@@ -293,6 +294,7 @@ export function RequestInbox({
           const assessment = assessLiveRequest({ request, decision });
           const presentation = presentWalletRequest({ request, decision });
           const summary = summarizeLiveRequest(request);
+          const understanding = understandLiveRequest(request);
           const aiReview = aiReviewByRequestId.get(request.id);
           return (
             <button
@@ -330,9 +332,15 @@ export function RequestInbox({
                 </em>
               </span>
               <small className="request-evidence-line">
-                {assessment.evidenceConfidence === "high" ? "Recognized" : "Source not profiled"} ·{" "}
+                {understanding.protocolConfidence === "known"
+                  ? "Recognized protocol"
+                  : understanding.protocolConfidence === "probable"
+                    ? "Known DApp"
+                    : "Source not profiled"} ·{" "}
                 {formatExecutionStatus(assessment.executionStatus)} ·{" "}
-                {summary.chips.slice(0, 2).join(" · ")}
+                {understanding.decodeQuality === "partial-protocol-decode" && understanding.actionKind === "swap"
+                  ? "Partial V4 decode"
+                  : summary.chips.slice(0, 2).join(" · ")}
               </small>
             </button>
           );

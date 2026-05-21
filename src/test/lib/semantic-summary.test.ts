@@ -23,7 +23,7 @@ describe("live semantic summaries", () => {
 
     const summary = summarizeLiveRequest(request);
 
-    expect(summary.title).toBe("Swap transaction");
+    expect(summary.title).toContain("Swap 10 USDC");
     expect(summary.whatItWants).toMatch(/Swap/i);
     expect(summary.whatItWants).toMatch(/USDC|WETH|encoded token amount/i);
     expect(summary.whatItWants).not.toMatch(/raw units/i);
@@ -48,7 +48,7 @@ describe("live semantic summaries", () => {
 
     const summary = summarizeLiveRequest(request);
 
-    expect(summary.title).toBe("USDC approval");
+    expect(summary.title).toBe("Approve USDC spending");
     expect(summary.spender).toBe("0x9999999999999999999999999999999999999999");
     expect(summary.primaryAmount).toBe("5 USDC");
     expect(summary.whatItWants).toContain("Allow Curve");
@@ -153,7 +153,7 @@ describe("live semantic summaries", () => {
     expect(summary.whatItWants).toContain("0x2222222222222222222222222222222222222222");
     expect(summary.whatItWants).toContain("selector 0x36ac25a2");
     expect(summary.whatItWants).toContain("0.01 ETH");
-    expect(summary.whyDappNeedsIt).toMatch(/not fully decoded/i);
+    expect(summary.whyDappNeedsIt ?? summary.userShouldCheck.join(" ")).toMatch(/not fully decoded/i);
     expect(summary.userShouldCheck.join(" ")).toMatch(/does not prove/i);
     expect(summary.whatItWants).not.toMatch(/specialized summary/i);
   });

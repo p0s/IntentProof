@@ -47,6 +47,25 @@ const COMMAND_NAMES: Record<number, string> = {
   0x40: "ACROSS_V4_DEPOSIT_V3",
 };
 
+const V4_ACTION_NAMES: Record<number, string> = {
+  0x06: "SWAP_EXACT_IN_SINGLE",
+  0x07: "SWAP_EXACT_IN",
+  0x08: "SWAP_EXACT_OUT_SINGLE",
+  0x09: "SWAP_EXACT_OUT",
+  0x0b: "SETTLE",
+  0x0c: "SETTLE_ALL",
+  0x0d: "SETTLE_PAIR",
+  0x0e: "TAKE",
+  0x0f: "TAKE_ALL",
+  0x10: "TAKE_PORTION",
+  0x11: "TAKE_PAIR",
+  0x12: "CLOSE_CURRENCY",
+  0x13: "CLEAR_OR_TAKE",
+  0x14: "SWEEP",
+  0x15: "WRAP",
+  0x16: "UNWRAP",
+};
+
 const SUPPORTED_COMMANDS = new Set([
   0x00,
   0x01,
@@ -69,6 +88,7 @@ export interface DecodedUniversalRouterCommand {
   name: string;
   allowRevert: boolean;
   supported: boolean;
+  partial: boolean;
   summary: string;
   tokenPath?: Address[];
   amountIn?: bigint;
@@ -78,6 +98,8 @@ export interface DecodedUniversalRouterCommand {
   recipient?: Address;
   token?: Address;
   hasUnlimitedPermit?: boolean;
+  v4Actions?: string[];
+  v4ActionCount?: number;
 }
 
 export interface DecodedUniversalRouterPlan {
@@ -86,11 +108,13 @@ export interface DecodedUniversalRouterPlan {
   commandsHex: Hex;
   commands: DecodedUniversalRouterCommand[];
   supported: boolean;
+  hasPartialProtocolDecode: boolean;
   hasUnsupportedCommands: boolean;
   hasUnlimitedPermit: boolean;
   hasAllowRevert: boolean;
   summary: string;
   unsupportedCommandNames: string[];
+  partialCommandNames: string[];
 }
 
 function commandName(command: number) {
@@ -122,6 +146,10 @@ function commandBytes(commands: Hex) {
   const body = commands.slice(2);
   if (body.length === 0 || body.length % 2 !== 0) return [];
   return body.match(/.{2}/g)?.map((byte) => Number.parseInt(byte, 16)) ?? [];
+}
+
+function v4ActionName(action: number) {
+  return V4_ACTION_NAMES[action] ?? `UNKNOWN_ACTION_0x${action.toString(16)}`;
 }
 
 function decodeV3Path(path: Hex) {
@@ -171,6 +199,7 @@ function decodeV3Swap(input: Hex, exactIn: boolean): DecodedUniversalRouterComma
     name: exactIn ? "V3_SWAP_EXACT_IN" : "V3_SWAP_EXACT_OUT",
     allowRevert: false,
     supported: true,
+    partial: false,
     recipient,
     tokenPath: tokens,
     amountIn: exactIn ? primaryAmount : undefined,
@@ -206,6 +235,7 @@ function decodeV2Swap(input: Hex, exactIn: boolean): DecodedUniversalRouterComma
     name: exactIn ? "V2_SWAP_EXACT_IN" : "V2_SWAP_EXACT_OUT",
     allowRevert: false,
     supported: true,
+    partial: false,
     recipient,
     tokenPath: path,
     amountIn: exactIn ? primaryAmount : undefined,
@@ -246,6 +276,7 @@ function decodeSimpleTransferCommand(
     name: commandName(command),
     allowRevert: false,
     supported: true,
+    partial: false,
     token,
     recipient,
     amountIn: value,
@@ -266,6 +297,7 @@ function decodeTwoArgPaymentCommand(
     name: commandName(command),
     allowRevert: false,
     supported: true,
+    partial: false,
     recipient,
     amountIn: amount,
     summary: `${commandName(command)} ${amount.toString()} encoded token amount for ${shortAddress(recipient)}`,
@@ -286,6 +318,7 @@ function decodePermit2Transfer(input: Hex): DecodedUniversalRouterCommand {
     name: "PERMIT2_TRANSFER_FROM",
     allowRevert: false,
     supported: true,
+    partial: false,
     token,
     recipient,
     amountIn: amount,
@@ -347,6 +380,7 @@ function decodePermit2Permit(input: Hex): DecodedUniversalRouterCommand {
     name: "PERMIT2_PERMIT",
     allowRevert: false,
     supported: true,
+    partial: false,
     token: permit.token,
     recipient: permit.spender,
     amountIn: amount,
@@ -355,7 +389,44 @@ function decodePermit2Permit(input: Hex): DecodedUniversalRouterCommand {
   };
 }
 
+function decodeV4Swap(input: Hex): DecodedUniversalRouterCommand {
+  const decoded = decodeAbiParameters(
+    [{ type: "bytes" }, { type: "bytes[]" }],
+    input,
+  );
+  const actions = commandBytes(decoded[0] as Hex);
+  const actionNames = actions.map(v4ActionName);
+  const swapActionNames = actionNames.filter((name) => name.startsWith("SWAP_"));
+  const summary = swapActionNames.length
+    ? `Recognized Uniswap V4 swap with ${swapActionNames.join(", ")} action${swapActionNames.length === 1 ? "" : "s"}`
+    : `Recognized Uniswap V4 swap command with ${actions.length} V4 action${actions.length === 1 ? "" : "s"}`;
+
+  return {
+    byte: 0,
+    command: 0x10,
+    name: "V4_SWAP",
+    allowRevert: false,
+    supported: false,
+    partial: true,
+    summary,
+    v4Actions: actionNames,
+    v4ActionCount: actions.length,
+  };
+}
+
 function decodeCommand(command: number, input: Hex) {
+  if (command === 0x10) {
+    try {
+      return decodeV4Swap(input);
+    } catch {
+      return {
+        ...unsupportedCommand(command, "V4 swap command input could not be decoded."),
+        partial: true,
+        summary: "Recognized Uniswap V4 swap command, but its action payload could not be decoded.",
+      };
+    }
+  }
+
   if (!SUPPORTED_COMMANDS.has(command)) {
     return unsupportedCommand(command, "Command is not in the supported live decoder set.");
   }
@@ -388,6 +459,7 @@ function unsupportedCommand(command: number, reason: string): DecodedUniversalRo
     name: commandName(command),
     allowRevert: false,
     supported: false,
+    partial: false,
     summary: `${commandName(command)} unsupported: ${reason}`,
   };
 }
@@ -431,6 +503,9 @@ export function decodeUniversalRouterRequest(
     const unsupportedCommandNames = commandsDecoded
       .filter((command) => !command.supported)
       .map((command) => command.name);
+    const partialCommandNames = commandsDecoded
+      .filter((command) => command.partial)
+      .map((command) => command.name);
     const hasUnlimitedPermit = commandsDecoded.some(
       (command) => command.hasUnlimitedPermit,
     );
@@ -442,11 +517,13 @@ export function decodeUniversalRouterRequest(
       commandsHex: commands,
       commands: commandsDecoded,
       supported: unsupportedCommandNames.length === 0,
+      hasPartialProtocolDecode: partialCommandNames.length > 0,
       hasUnsupportedCommands: unsupportedCommandNames.length > 0,
       hasUnlimitedPermit,
       hasAllowRevert,
       summary,
       unsupportedCommandNames,
+      partialCommandNames,
     };
   } catch {
     return undefined;

@@ -6,7 +6,7 @@ Protect Wallet is a routed WalletConnect mode for imToken users:
 DApp WalletConnect URI or QR
 -> IntentProof pairs the DApp after the selected signer is available
 -> IntentProof receives and explains the request
--> evidence confidence, risk, execution, and action state
+-> protocol identity, ABI decode, protocol decode, risk, execution, and action state
 -> reviewable request is forwarded to imToken Web, signed by Local Token Core Vault, or forwarded to a fallback wallet
 -> result or rejection is returned to the DApp session
 ```
@@ -74,6 +74,12 @@ non-blocked request.
 - Unusual or incomplete evidence requires explicit acknowledgement.
 - Evidence confidence is separate from risk: a recognized DApp or decoded
   contract can still require review.
+- Selected Keystone ABI metadata and local ABI fallbacks improve method decode,
+  but ABI metadata is descriptive only and never a safety oracle.
+- Protocol decoders handle nested flows such as Uniswap Universal Router,
+  ERC-20 approvals, Permit2, Lido staking, signatures, and network switches.
+  Uniswap V4 swaps are recognized as partial V4 decodes until full route details
+  can be displayed.
 - Routine account, chain, and capability requests are answered locally and
   moved to Activity.
 - Mainnet unlimited approvals are highlighted as high-impact permissions.
