@@ -138,7 +138,11 @@ function formatKnownTokenAmount(amount: bigint, token?: string) {
   const whole = amount / divisor;
   const fraction = amount % divisor;
   if (fraction === 0n) return `${whole.toString()} ${metadata.symbol}`;
-  const padded = fraction.toString().padStart(metadata.decimals, "0").replace(/0+$/, "");
+  const padded = fraction
+    .toString()
+    .padStart(metadata.decimals, "0")
+    .slice(0, 6)
+    .replace(/0+$/, "");
   return `${whole.toString()}.${padded} ${metadata.symbol}`;
 }
 
@@ -300,7 +304,12 @@ function decodeTwoArgPaymentCommand(
     partial: false,
     recipient,
     amountIn: amount,
-    summary: `${commandName(command)} ${amount.toString()} encoded token amount for ${shortAddress(recipient)}`,
+    summary:
+      command === 0x0b
+        ? "Wraps the provided ETH inside the router before the swap."
+        : command === 0x0c
+          ? "Unwraps WETH inside the router after the swap."
+          : `${commandName(command)} ${amount.toString()} encoded token amount for ${shortAddress(recipient)}`,
   };
 }
 

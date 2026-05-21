@@ -192,7 +192,11 @@ export function RequestInbox({
             <dl>
               <div>
                 <dt>Intent match</dt>
-                <dd>{browserAiState.review.userIntentMatch.replaceAll("_", " ")}</dd>
+                <dd>
+                  {browserAiState.review.userIntentMatch === "unclear"
+                    ? "unclear · No explicit user intent was provided."
+                    : browserAiState.review.userIntentMatch.replaceAll("_", " ")}
+                </dd>
               </div>
               <div>
                 <dt>AI confidence</dt>
@@ -220,7 +224,7 @@ export function RequestInbox({
                       <li key={question}>{question}</li>
                     ))
                   ) : (
-                    <li>No extra questions suggested.</li>
+                    <li>Verify the DApp, chain, amount, and final wallet prompt.</li>
                   )}
                 </ul>
               </div>
@@ -234,7 +238,7 @@ export function RequestInbox({
                     <li key={hint}>{hint}</li>
                   ))
                 ) : (
-                  <li>No specific pattern hints found.</li>
+                  <li>No concrete scam pattern found by local AI. Still verify the DApp, chain, amount, and final wallet prompt.</li>
                 )}
               </ul>
             </details>

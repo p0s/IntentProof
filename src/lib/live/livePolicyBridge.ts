@@ -3,6 +3,7 @@ import type { AgentFirewallSettings } from "../intentproof";
 import type { LivePolicyDecision, LiveRequest } from "./types";
 import { isReadOnlyLiveRpcMethod } from "./rpcProxy";
 import { decodeUniversalRouterRequest } from "./uniswapUniversalRouter";
+import { getKnownProtocolContractLabel } from "./protocolProfiles";
 
 const MAX_UINT256_HEX =
   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
@@ -363,7 +364,7 @@ export function evaluateLiveRequestPolicy(params: {
           issue(
             "warn",
             "Partial V4 decode",
-            `${universalRouterPlan.summary}. IntentProof recognizes this as a Uniswap V4 swap but does not fully decode every V4 route detail yet. Verify token in/out, minimum received, recipient, and value in the connected wallet.`,
+            "IntentProof recognized this Uniswap request, but route details are only partially decoded. Verify token out, minimum received, recipient, and value in the connected wallet.",
           ),
         );
       } else {
@@ -400,7 +401,22 @@ export function evaluateLiveRequestPolicy(params: {
     const trustedTransferRecipient =
       transferRecipient?.toLowerCase() ===
       "0x1111111111111111111111111111111111111111";
-    if (!isUnlimitedApproval(request) && request.tx?.to && !trustedTransferRecipient) {
+    const knownTarget = getKnownProtocolContractLabel(request);
+    if (knownTarget) {
+      issues.push(
+        issue(
+          "info",
+          "Known router target",
+          `Target is ${knownTarget.profile.label} ${knownTarget.label}. Verify the route details rather than treating the router address as a recipient.`,
+        ),
+      );
+    }
+    if (
+      !knownTarget &&
+      !isUnlimitedApproval(request) &&
+      request.tx?.to &&
+      !trustedTransferRecipient
+    ) {
       issues.push(
         issue(
           "warn",
@@ -450,8 +466,10 @@ export function evaluateLiveRequestPolicy(params: {
             : "PASS",
     summary: hasBlock
       ? "IntentProof cannot relay this method or chain. Use a different wallet path only if you deliberately trust the request."
+      : issues.some((item) => item.title === "Partial V4 decode")
+        ? "IntentProof recognized this Uniswap request, but route details are only partially decoded. Review before forwarding."
       : hasWarn
-        ? "IntentProof found unusual or incomplete evidence. Review the details before sending the exact request to imToken."
+        ? "IntentProof found review-worthy evidence. Review the details before sending the exact request to imToken."
         : "IntentProof found routine request evidence. imToken remains the final signing checkpoint.",
     score,
     canForward: !hasBlock && !(hasWarn && !params.warningAcknowledged),

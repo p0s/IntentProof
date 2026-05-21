@@ -135,7 +135,10 @@ function formatTokenAmount(chainKey: DemoChainKey, address: string | undefined, 
   if (amount === undefined) return undefined;
   const token = tokenInfo(chainKey, address);
   if (!token) return "encoded token amount";
-  return `${formatUnits(amount, token.decimals)} ${token.symbol}`;
+  const exact = formatUnits(amount, token.decimals);
+  const [whole, fraction = ""] = exact.split(".");
+  if (!fraction) return `${whole} ${token.symbol}`;
+  return `${`${whole}.${fraction.slice(0, 6)}`.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")} ${token.symbol}`;
 }
 
 function formatNativeValue(request: LiveRequest) {
@@ -143,7 +146,12 @@ function formatNativeValue(request: LiveRequest) {
   try {
     const value = BigInt(request.tx.value);
     if (value === 0n) return undefined;
-    return `${formatUnits(value, 18)} ${getChainConfig(request.chain.chainKey).nativeSymbol}`;
+    const exact = formatUnits(value, 18);
+    const [whole, fraction = ""] = exact.split(".");
+    const short = fraction
+      ? `${whole}.${fraction.slice(0, 6)}`.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")
+      : whole;
+    return `${short} ${getChainConfig(request.chain.chainKey).nativeSymbol}`;
   } catch {
     return request.tx.value;
   }
@@ -381,9 +389,11 @@ function summarizeUniversalRouter(request: LiveRequest): LiveSemanticSummary | u
   return {
     title: "Swap transaction",
     subtitle: "Uniswap Universal Router request",
-    whatItWants: plan.supported
+    whatItWants: plan.hasPartialProtocolDecode
+      ? "Request a Uniswap V4 swap through Universal Router. IntentProof recognizes the router and V4 action, but cannot fully display the final token route yet."
+      : plan.supported
       ? `Swap ${amountPart}${outputPart}${routePart}.`
-      : "Run a Uniswap Universal Router command stream that IntentProof cannot fully display yet.",
+      : "Request a Uniswap Universal Router flow. IntentProof recognizes the router, but cannot fully display every command yet.",
     whyDappNeedsIt: "Uniswap uses the Universal Router to combine swaps, Permit2 transfers, wrapping, and cleanup commands into one transaction.",
     userShouldCheck: [
       "Confirm token in, token out, minimum received, recipient, and any Permit2 permission in the connected wallet.",

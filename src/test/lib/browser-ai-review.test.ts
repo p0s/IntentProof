@@ -10,6 +10,8 @@ import {
 } from "../../lib/live/browserAiReview";
 import { buildFakeLiveRequests } from "../../lib/live/fakeLiveClients";
 import { evaluateLiveRequestPolicy } from "../../lib/live/livePolicyBridge";
+import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
+import { buildUniversalRouterUnsupportedV4Calldata } from "./uniswap-universal-router-fixtures";
 
 const webLlmMocks = vi.hoisted(() => ({
   deleteModelAllInfoInCache: vi.fn(async () => undefined),
@@ -202,6 +204,69 @@ describe("browser AI transaction review", () => {
     expect(review.plainEnglishSummary).toContain("advisory fallback");
     expect(review.questionsToAskBeforeSigning.join(" ")).toContain("recognize this DApp");
     expect(webLlmMocks.createCompletion).toHaveBeenCalledTimes(2);
+  });
+
+  it("normalizes AI wording for unsigned Uniswap V4 requests without explicit intent", async () => {
+    Object.defineProperty(globalThis.navigator, "gpu", {
+      value: {},
+      configurable: true,
+    });
+    const request = normalizeLiveRequest({
+      id: "uniswap-v4",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: "0x21f1caa940e86",
+          data: buildUniversalRouterUnsupportedV4Calldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+    const decision = evaluateLiveRequestPolicy({
+      request,
+      firewall: defaultFirewallSettings,
+    });
+    const packet = buildAiTransactionReviewPacket({
+      mode: "live",
+      request,
+      decision,
+    });
+    webLlmMocks.createCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              headline: "This swap executed on mainnet",
+              plainEnglishSummary: "The transaction was executed and intent does not match.",
+              userIntentMatch: "does_not_match",
+              mainRisks: ["One concrete risk or missing evidence"],
+              questionsToAskBeforeSigning: ["No extra questions suggested"],
+              whyPolicyDecisionMakesSense: "Intent does not match.",
+              scamPatternHints: [],
+              confidence: "medium",
+            }),
+          },
+        },
+      ],
+    });
+
+    const review = await runBrowserAiTransactionReview({
+      modelId: "SmolLM2-360M-Instruct-q4f16_1-MLC",
+      packet,
+    });
+
+    expect(review.headline).toBe("Uniswap requested a V4 swap on Ethereum Mainnet");
+    expect(review.userIntentMatch).toBe("unclear");
+    expect(JSON.stringify(review)).not.toMatch(/executed/i);
+    expect(JSON.stringify(review)).not.toMatch(/intent does not match/i);
+    expect(review.mainRisks.join(" ")).toContain("cannot fully display token out");
+    expect(review.questionsToAskBeforeSigning).toContain(
+      "Does the final imToken prompt show the same value and router?",
+    );
+    expect(review.scamPatternHints.join(" ")).toContain("No concrete scam pattern found");
   });
 
   it("exercises every configured local model through schema-failure fallback", async () => {

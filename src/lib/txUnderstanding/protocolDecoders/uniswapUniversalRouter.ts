@@ -6,9 +6,11 @@ import {
 import type { TransactionUnderstanding } from "../types";
 import {
   formatNativeValue,
+  formatNativeValueExact,
   formatTokenAmount,
   shortAddress,
   tokenLabel,
+  nativeValueWei,
 } from "./helpers";
 
 function commandAmountIn(request: LiveRequest, command?: DecodedUniversalRouterCommand) {
@@ -47,6 +49,7 @@ export function decodeUniswapUniversalRouterRequest(
   const amountIn = commandAmountIn(request, swap);
   const minAmountOut = commandAmountOut(request, swap);
   const nativeValue = formatNativeValue(request);
+  const nativeValueExact = formatNativeValueExact(request);
   const route = routeSymbols(request, swap);
   const amountPhrase = amountIn ?? nativeValue ?? "encoded input amount";
   const title = v4Command && !swap
@@ -62,7 +65,7 @@ export function decodeUniswapUniversalRouterRequest(
     actionKind: "swap",
     actionTitle: title,
     userSummary: partialV4
-      ? `Recognized Uniswap V4 swap through the Universal Router${nativeValue ? ` with ${nativeValue}` : ""}. IntentProof can display the router envelope and V4 action list, but not the full token route yet.`
+      ? "Request a Uniswap V4 swap through Universal Router. IntentProof recognizes the router and V4 action, but cannot fully display the final token route yet."
       : `Swap ${amountPhrase}${minAmountOut ? ` for at least ${minAmountOut}` : ""}${route ? ` through ${route}` : ""}.`,
     valueSummary: nativeValue,
     tokenIn: swap?.tokenPath?.[0]
@@ -81,7 +84,9 @@ export function decodeUniswapUniversalRouterRequest(
     riskReasons: [
       plan.hasUnlimitedPermit
         ? "Universal Router includes an unlimited Permit2 permission."
-        : "Swap routes should be reviewed for token in, token out, minimum received, and recipient.",
+        : partialV4
+          ? "Recognized Uniswap request with partial V4 route decoding."
+          : "Swap routes should be reviewed for token in, token out, minimum received, and recipient.",
       partialV4
         ? "V4 route details are partially decoded, so verify token in/out and minimum received in the connected wallet."
         : "Universal Router command stream is recognized.",
@@ -95,6 +100,14 @@ export function decodeUniswapUniversalRouterRequest(
         : "No unlimited Permit2 permission was detected in the decoded commands.",
     ],
     simulationStatus: "pending",
+    deterministicImpact: {
+      nativeValueOut: nativeValue,
+      nativeValueOutExact: nativeValueExact,
+      nativeValueOutWei: nativeValueWei(request),
+      permit2: plan.hasUnlimitedPermit
+        ? "Permit2 permission detected in router command stream"
+        : undefined,
+    },
     evidence: [
       "Uniswap Universal Router execute(...) envelope decoded.",
       partialV4
@@ -108,6 +121,8 @@ export function decodeUniswapUniversalRouterRequest(
       unsupportedCommandNames: plan.unsupportedCommandNames,
       partialCommandNames: plan.partialCommandNames,
       v4Actions: v4Command?.v4Actions,
+      nativeValueExact,
+      nativeValueWei: nativeValueWei(request),
       summary: plan.summary,
     },
   };

@@ -218,10 +218,8 @@ describe("live policy bridge", () => {
     expect(warning.issues.map((item) => item.title)).toContain(
       "Decoded Universal Router route",
     );
-    expect(warning.score).toMatchObject({
-      value: 66,
-      confidence: "medium",
-    });
+    expect(warning.score.confidence).toBe("medium");
+    expect(warning.score.value).toBeGreaterThanOrEqual(70);
     expect(warning.score.reasons.some((reason) =>
       reason.startsWith("Universal Router command stream decoded:"),
     )).toBe(true);
@@ -298,9 +296,14 @@ describe("live policy bridge", () => {
     expect(decision.issues.map((item) => item.title)).toContain(
       "Partial V4 decode",
     );
-    expect(decision.issues.map((item) => item.description).join(" ")).toContain(
-      "Uniswap V4 swap",
+    expect(decision.issues.map((item) => item.title)).toContain("Known router target");
+    expect(decision.issues.map((item) => item.title)).not.toContain(
+      "First-time recipient review",
     );
+    expect(decision.issues.map((item) => item.description).join(" ")).toContain(
+      "recognized this Uniswap request",
+    );
+    expect(decision.summary).toContain("recognized this Uniswap request");
     expect(decision.score.confidence).toBe("medium");
   });
 

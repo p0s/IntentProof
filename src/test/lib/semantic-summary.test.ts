@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
-import { buildUniversalRouterV3ExactInCalldata } from "./uniswap-universal-router-fixtures";
+import {
+  buildUniversalRouterUnsupportedV4Calldata,
+  buildUniversalRouterV3ExactInCalldata,
+} from "./uniswap-universal-router-fixtures";
 
 describe("live semantic summaries", () => {
   it("formats a decoded Uniswap route with token decimals", () => {
@@ -28,6 +31,34 @@ describe("live semantic summaries", () => {
     expect(summary.whatItWants).toMatch(/USDC|WETH|encoded token amount/i);
     expect(summary.whatItWants).not.toMatch(/raw units/i);
     expect(summary.chips).toContain("Uniswap");
+  });
+
+  it("summarizes Uniswap V4 partial decode as recognized review work", () => {
+    const request = normalizeLiveRequest({
+      id: "uniswap-v4",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: "0x21f1caa940e86",
+          data: buildUniversalRouterUnsupportedV4Calldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const summary = summarizeLiveRequest(request);
+
+    expect(summary.title).toContain("Swap 0.000597 ETH");
+    expect(summary.whatItWants).toBe(
+      "Request a Uniswap V4 swap through Universal Router. IntentProof recognizes the router and V4 action, but cannot fully display the final token route yet.",
+    );
+    expect(summary.primaryAmount).toBe("0.000597 ETH");
+    expect(summary.chips).toContain("Recognized protocol");
+    expect(summary.chips).toContain("Partial V4 decode");
+    expect(summary.whatItWants).not.toMatch(/cannot fully display yet$/i);
   });
 
   it("summarizes ERC-20 approvals with spender and amount", () => {

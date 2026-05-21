@@ -291,7 +291,14 @@ WalletConnect forwarding.
 - Router command streams need protocol decoders in addition to ABI metadata.
   Uniswap Universal Router V2/V3 routes are decoded where supported. `V4_SWAP`
   is recognized as a Uniswap V4 swap with partial V4 decode until full route
-  details can be safely displayed.
+  details can be safely displayed. Partial protocol decode is treated as a
+  recognized request that needs review, not as an unknown or suspicious request.
+- Deterministic request impact, such as nonzero native value, is displayed even
+  when simulation asset deltas are unavailable or not parsed. Exact wei stays in
+  Advanced evidence.
+- Local AI review is advisory. When no explicit user intent is provided, it must
+  use unclear intent-match language and must not describe unsigned requests as
+  already executed.
 
 ### 3.3 Hosted app requirements
 

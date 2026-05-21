@@ -106,7 +106,10 @@ import {
   FakeSignerClient,
 } from "../../lib/live/fakeLiveClients";
 import { normalizeLiveRequest } from "../../lib/live/requestNormalizer";
-import { buildUniversalRouterV3ExactInCalldata } from "../lib/uniswap-universal-router-fixtures";
+import {
+  buildUniversalRouterUnsupportedV4Calldata,
+  buildUniversalRouterV3ExactInCalldata,
+} from "../lib/uniswap-universal-router-fixtures";
 import App from "../../ui/App";
 
 describe("App smoke test", () => {
@@ -662,7 +665,11 @@ describe("App smoke test", () => {
     await user.click(screen.getByRole("button", { name: "Review selected" }));
 
     expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
-    expect(screen.getByText("The local model reviewed the decoded IntentProof packet.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/local model reviewed the decoded IntentProof packet/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/unclear · No explicit user intent was provided/i)).toBeInTheDocument();
+    expect(screen.queryByText(/executed/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
   });
 
@@ -760,6 +767,54 @@ describe("App smoke test", () => {
     expect(
       screen.getAllByText("Universal Router command stream decoded into route evidence.").length,
     ).toBeGreaterThan(0);
+  });
+
+  it("presents Uniswap V4 partial decode as recognized wallet review", () => {
+    render(
+      <App
+        liveClients={{
+          signer: new FakeSignerClient(),
+          projectId: "test-project",
+          initialRequests: [
+            normalizeLiveRequest({
+              id: "uniswap-v4",
+              origin: "Uniswap",
+              method: "eth_sendTransaction",
+              params: [
+                {
+                  from: "0x7777777777777777777777777777777777777777",
+                  to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+                  value: "0x21f1caa940e86",
+                  data: buildUniversalRouterUnsupportedV4Calldata(),
+                  chainId: "0x1",
+                },
+              ],
+            }),
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: /Uniswap.*Swap 0\.000597 ETH.*Needs review.*Ethereum Mainnet/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Recognized protocol/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Partial V4 decode/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Source not profiled/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/High-impact permission/i)).not.toBeInTheDocument();
+    expect(screen.getByText("What this request wants")).toBeInTheDocument();
+    expect(
+      screen.getByText("Request a Uniswap V4 swap through Universal Router. IntentProof recognizes the router and V4 action, but cannot fully display the final token route yet."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Recognized Uniswap request · Needs review")).toBeInTheDocument();
+    expect(screen.getAllByText("Sends 0.000597 ETH").length).toBeGreaterThan(0);
+    expect(screen.getByText("Output token / minimum received not fully decoded yet")).toBeInTheDocument();
+    expect(screen.getByText("No Permit2 permission detected")).toBeInTheDocument();
+    const assetChangesLabel = screen.getByText("Asset changes").closest("div");
+    expect(assetChangesLabel).toHaveTextContent(/Asset-change preview unavailable|Simulation did not return parsed asset changes/);
+    expect(screen.queryByText(/unusual evidence/i)).not.toBeInTheDocument();
   });
 
   it("rejects requests IntentProof cannot relay and never forwards them", async () => {

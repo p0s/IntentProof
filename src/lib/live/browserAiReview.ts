@@ -373,13 +373,13 @@ function isConfidence(value: unknown): value is AiTransactionReview["confidence"
 }
 
 const REVIEW_JSON_EXAMPLE = {
-  headline: "Short review headline",
-  plainEnglishSummary: "Explain what the normalized packet says in plain English.",
+  headline: "Uniswap requested a V4 swap on Ethereum Mainnet",
+  plainEnglishSummary: "The DApp is asking the wallet to review a recognized request before anything is forwarded.",
   userIntentMatch: "unclear",
-  mainRisks: ["One concrete risk or missing evidence"],
-  questionsToAskBeforeSigning: ["One question the user should answer"],
-  whyPolicyDecisionMakesSense: "Explain why the deterministic policy result fits.",
-  scamPatternHints: ["One relevant scam pattern or an empty array"],
+  mainRisks: ["Route details are partially decoded; verify the final wallet prompt."],
+  questionsToAskBeforeSigning: ["Does the final wallet prompt show the same value, router, and chain?"],
+  whyPolicyDecisionMakesSense: "Recognized requests can still need user review when route details are partial.",
+  scamPatternHints: ["No concrete scam pattern found by local AI. Still verify the DApp, chain, amount, and final wallet prompt."],
   confidence: "medium",
 } satisfies AiTransactionReview;
 
@@ -411,6 +411,92 @@ function validateAiTransactionReview(parsed: Record<string, unknown>): AiTransac
 function normalizeReviewText(value: string, fallback: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function sanitizeUnsignedRequestLanguage(text: string) {
+  return text
+    .replace(/\bintent does not match\b/gi, "no explicit user intent was provided")
+    .replace(/\bhas been executed\b/gi, "has been requested")
+    .replace(/\bwas executed\b/gi, "was requested")
+    .replace(/\bhas executed\b/gi, "has requested")
+    .replace(/\bexecuted\b/gi, "requested")
+    .replace(/\bexecuting\b/gi, "asking to run")
+    .replace(/\bwill execute\b/gi, "would run");
+}
+
+function removePlaceholderItems(items: string[]) {
+  return items
+    .map((item) => sanitizeUnsignedRequestLanguage(item.trim()))
+    .filter(Boolean)
+    .filter(
+      (item) =>
+        !/one concrete risk|one question|no extra questions suggested|one relevant scam pattern/i.test(
+          item,
+        ),
+    );
+}
+
+function isUniswapPartialV4(packet: AiTransactionReviewPacket) {
+  return (
+    packet.understanding.protocolName === "Uniswap" &&
+    packet.understanding.actionKind === "swap" &&
+    packet.understanding.decodeQuality === "partial-protocol-decode"
+  );
+}
+
+function normalizeAiReviewForPacket(
+  review: AiTransactionReview,
+  packet: AiTransactionReviewPacket,
+): AiTransactionReview {
+  const mainRisks = removePlaceholderItems(review.mainRisks);
+  const questions = removePlaceholderItems(review.questionsToAskBeforeSigning);
+  const scamHints = removePlaceholderItems(review.scamPatternHints);
+  const noIntent = !packet.hasExplicitUserIntent;
+  const defaultScamHint =
+    "No concrete scam pattern found by local AI. Still verify the DApp, chain, amount, and final wallet prompt.";
+  const partialV4 = isUniswapPartialV4(packet);
+  return {
+    headline: sanitizeUnsignedRequestLanguage(
+      partialV4
+        ? `Uniswap requested a V4 swap on ${packet.chain}`
+        : review.headline,
+    ),
+    plainEnglishSummary: sanitizeUnsignedRequestLanguage(
+      `${noIntent ? "No explicit user intent was provided. " : ""}${review.plainEnglishSummary}`,
+    ),
+    userIntentMatch:
+      noIntent && review.userIntentMatch === "does_not_match"
+        ? "unclear"
+        : noIntent
+          ? "unclear"
+          : review.userIntentMatch,
+    mainRisks: mainRisks.length
+      ? mainRisks
+      : partialV4
+        ? [
+            "IntentProof recognizes the Universal Router and V4 action, but cannot fully display token out, minimum received, or recipient yet.",
+          ]
+        : ["No concrete risk beyond normal wallet review was found in the normalized packet."],
+    questionsToAskBeforeSigning: questions.length
+      ? questions
+      : partialV4
+        ? [
+            "Is this the pair you selected in Uniswap?",
+            "Is the minimum received acceptable?",
+            "Does the final imToken prompt show the same value and router?",
+          ]
+        : [
+            "Do you recognize this DApp and did you initiate this action?",
+            "Do the chain, amount, target, and final wallet prompt match what you expect?",
+          ],
+    whyPolicyDecisionMakesSense: sanitizeUnsignedRequestLanguage(
+      noIntent && /intent does not match/i.test(review.whyPolicyDecisionMakesSense)
+        ? "No explicit user intent was provided, so IntentProof treats intent match as unclear and relies on deterministic request evidence."
+        : review.whyPolicyDecisionMakesSense,
+    ),
+    scamPatternHints: scamHints.length ? scamHints : [defaultScamHint],
+    confidence: review.confidence,
+  };
 }
 
 function userFacingFallbackReason(reason: string) {
@@ -456,9 +542,13 @@ function fallbackReviewFromPacket(
 
   return {
     headline: packet.understanding.actionTitle
-      ? `${packet.understanding.protocolName}: ${packet.understanding.actionTitle}`
+      ? isUniswapPartialV4(packet)
+        ? `Uniswap requested a V4 swap on ${packet.chain}`
+        : `${packet.understanding.protocolName}: ${packet.understanding.actionTitle}`
       : "Review generated from normalized evidence",
-    plainEnglishSummary: `${packet.understanding.userSummary} ${summaryParts.join(" ")}${modelNote} IntentProof produced this advisory fallback from the same normalized packet because ${fallbackReason}`,
+    plainEnglishSummary: sanitizeUnsignedRequestLanguage(
+      `${!packet.hasExplicitUserIntent ? "No explicit user intent was provided. " : ""}${packet.understanding.userSummary} ${summaryParts.join(" ")}${modelNote} IntentProof produced this advisory fallback from the same normalized packet because ${fallbackReason}`,
+    ),
     userIntentMatch: !packet.hasExplicitUserIntent
       ? "unclear"
       : packet.policyDecision === "BLOCK"
@@ -466,22 +556,32 @@ function fallbackReviewFromPacket(
         : packet.warnings.length || packet.blockers.length
           ? "partially_matches"
           : "matches",
-    mainRisks: mainRisks.length
+    mainRisks: isUniswapPartialV4(packet)
+      ? [
+          "IntentProof recognizes the Universal Router and V4 action, but cannot fully display token out, minimum received, or recipient yet.",
+        ]
+      : mainRisks.length
       ? mainRisks
       : [
           isWrite
             ? "This is a write request. Confirm the DApp, chain, target, value, and decoded method in the connected wallet."
             : "No additional deterministic risk was found in the normalized packet.",
         ],
-    questionsToAskBeforeSigning: [
-      "Do you recognize this DApp and did you initiate this action?",
-      packet.isMainnet
-        ? "Are you comfortable using real mainnet assets for this request?"
-        : "Is this the intended network?",
-      packet.isUnlimitedApproval
-        ? "Do you want to grant an unlimited token approval?"
-        : "Do the amount, recipient, and method match what you expected?",
-    ],
+    questionsToAskBeforeSigning: isUniswapPartialV4(packet)
+      ? [
+          "Is this the pair you selected in Uniswap?",
+          "Is the minimum received acceptable?",
+          "Does the final imToken prompt show the same value and router?",
+        ]
+      : [
+          "Do you recognize this DApp and did you initiate this action?",
+          packet.isMainnet
+            ? "Are you comfortable using real mainnet assets for this request?"
+            : "Is this the intended network?",
+          packet.isUnlimitedApproval
+            ? "Do you want to grant an unlimited token approval?"
+            : "Do the amount, recipient, and method match what you expected?",
+        ],
     whyPolicyDecisionMakesSense: normalizeReviewText(
       packet.understanding.riskReasons[0] ?? packet.policyReasons[0] ?? "",
       "IntentProof keeps deterministic policy and wallet review as the authority.",
@@ -489,7 +589,7 @@ function fallbackReviewFromPacket(
     scamPatternHints: [
       packet.isUnlimitedApproval
         ? "Unlimited approvals can be abused later if the spender is malicious or compromised."
-        : "Unexpected target addresses, unreadable calldata, and unsolicited signature prompts are common wallet-risk signals.",
+        : "No concrete scam pattern found by local AI. Still verify the DApp, chain, amount, and final wallet prompt.",
     ],
     confidence:
       packet.understanding.decodeQuality === "unknown" || packet.blockers.length
@@ -609,13 +709,9 @@ export function parseAiTransactionReviewOutput(output: string): AiTransactionRev
   }
 
   if (sawJson || sawInvalidReviewJson) {
-    throw new Error(
-      "Local AI returned JSON, but it was not a transaction review object. Try again or choose another local model.",
-    );
+    throw new Error("Local AI returned JSON, but it was not a transaction review object.");
   }
-  throw new Error(
-    "Local AI did not return valid review JSON. Try again or choose another local model.",
-  );
+  throw new Error("Local AI did not return valid review JSON.");
 }
 
 export async function runBrowserAiTransactionReview(params: {
@@ -653,7 +749,11 @@ export async function runBrowserAiTransactionReview(params: {
           "Use the transactionUnderstanding object as the source of truth for protocol, action, decode quality, asset authority, and risk.",
           "Use decoded fields, policy reasons, warnings, blockers, and simulation summaries only as supporting evidence.",
           "If hasExplicitUserIntent is false, userIntentMatch must be unclear. Do not infer mismatch from missing user intent.",
+          "Do not use does_not_match unless hasExplicitUserIntent is true and there is a concrete mismatch.",
+          "This request has not been forwarded or signed yet. Do not say executed, completed, or happened. Use requested, is asking to, would send, or would grant.",
           "Do not call a recognized standard swap malicious only because it is mainnet or simulation is unavailable.",
+          "For a Uniswap partial V4 decode, use headline 'Uniswap requested a V4 swap on Ethereum Mainnet' with intent match unclear unless explicit user intent is present.",
+          "If no scam pattern is found, use: No concrete scam pattern found by local AI. Still verify the DApp, chain, amount, and final wallet prompt.",
           "Return JSON with these exact keys: headline, plainEnglishSummary, userIntentMatch, mainRisks, questionsToAskBeforeSigning, whyPolicyDecisionMakesSense, scamPatternHints, confidence.",
           `Allowed userIntentMatch values: matches, partially_matches, does_not_match, unclear.`,
           `Allowed confidence values: low, medium, high.`,
@@ -671,14 +771,14 @@ export async function runBrowserAiTransactionReview(params: {
       packet: params.packet,
       reason: "The model returned an empty response.",
     });
-    return fallbackReviewFromPacket(
+    return normalizeAiReviewForPacket(fallbackReviewFromPacket(
       params.packet,
       "The model returned an empty response.",
       modelSentence,
-    );
+    ), params.packet);
   }
   try {
-    return parseAiTransactionReviewOutput(content);
+    return normalizeAiReviewForPacket(parseAiTransactionReviewOutput(content), params.packet);
   } catch (error) {
     const reason =
       error instanceof Error ? error.message : "The model output could not be parsed.";
@@ -687,11 +787,11 @@ export async function runBrowserAiTransactionReview(params: {
       packet: params.packet,
       reason,
     });
-    return fallbackReviewFromPacket(
+    return normalizeAiReviewForPacket(fallbackReviewFromPacket(
       params.packet,
       reason,
       modelSentence,
-    );
+    ), params.packet);
   }
 }
 

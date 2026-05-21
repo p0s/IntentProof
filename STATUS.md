@@ -100,6 +100,12 @@ _Last updated: 2026-05-20_
   Permit2, Lido staking, signatures, and network coordination. Uniswap V4
   `V4_SWAP` is recognized as a partial V4 decode instead of an unknown or
   source-not-profiled request.
+- [x] Recognized partial protocol decodes use wallet-grade copy. A Uniswap V4
+  partial route is shown as a recognized Uniswap request that needs review, not
+  as unusual evidence or a suspicious unknown.
+- [x] Request impact is separated from simulation asset deltas. Nonzero native
+  value is always shown as deterministic impact, with exact wei kept in Advanced
+  evidence, while missing parsed simulation deltas show an unavailable preview.
 - [x] Request evidence includes decode evidence, protocol profiles, optional
   server-side Tenderly simulation, optional Alchemy asset-change simulation,
   open RPC dry-run simulation, gas estimate evidence, and explicit
@@ -118,6 +124,9 @@ _Last updated: 2026-05-20_
 - [x] Batch local AI review can review all open non-routine requests from
   sanitized normalized packets. AI remains advisory and cannot change
   forwarding gates.
+- [x] Local AI review uses unclear intent-match language when no explicit user
+  intent exists, and unsigned requests are described as requested or pending
+  review rather than already executed.
 - [x] Request Inbox can delete downloaded WebLLM local model cache entries
   without touching local vaults, receipts, WalletConnect sessions, or app
   settings.

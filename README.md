@@ -132,8 +132,15 @@ protocol decoder plugins for Uniswap Universal Router, ERC-20 approvals,
 Permit2, Lido, signatures, and network coordination. Uniswap V2/V3 Universal
 Router routes are decoded into route evidence. Uniswap V4 `V4_SWAP` is
 recognized as a Uniswap swap with partial V4 decode until every nested V4 route
-detail can be safely displayed; this does not turn the request into a
-high-impact permission unless an approval or Permit2 authority is present.
+detail can be safely displayed. Partial protocol knowledge is shown as
+recognized-but-needs-review, not as suspicious unknown evidence, and it does not
+turn the request into a high-impact permission unless an approval or Permit2
+authority is present.
+
+IntentProof separates deterministic request impact from simulation asset
+deltas. If a transaction includes native value, the wallet review shows the
+short human amount even when asset-change simulation is unavailable or did not
+return parsed deltas. Exact values and raw wei stay in Advanced evidence.
 
 Routine wallet coordination requests such as account, chain, and capability
 checks are answered locally and recorded in Activity instead of cluttering the
@@ -146,9 +153,11 @@ local model receives only IntentProof's normalized review packet, including the
 deterministic transaction-understanding result. It does not receive wallet
 secrets, and it is not allowed to make requests forwardable. If no explicit user
 intent exists for a live DApp request, AI review must say intent is unclear
-rather than inventing a mismatch. Users can delete downloaded local AI model
-files from the Request Inbox. That clears WebLLM model cache entries only; it
-does not touch local vaults, receipts, WalletConnect sessions, or app settings.
+rather than inventing a mismatch. AI wording is normalized to describe unsigned
+requests as requested or pending review, never as already executed. Users can
+delete downloaded local AI model files from the Request Inbox. That clears
+WebLLM model cache entries only; it does not touch local vaults, receipts,
+WalletConnect sessions, or app settings.
 
 ## Token Core Usage
 

@@ -24,6 +24,20 @@ export type UserRiskLevel =
   | "blocked"
   | "unsupported";
 
+export interface DeterministicRequestImpact {
+  nativeValueOut?: string;
+  nativeValueOutExact?: string;
+  nativeValueOutWei?: string;
+  tokenApproval?: string;
+  permit2?: string;
+  signatureAuthority?: string;
+}
+
+export interface SimulationAssetDeltaSummary {
+  status: "available" | "unavailable" | "not-parsed";
+  summary?: string;
+}
+
 export interface TransactionUnderstanding {
   protocolName: string;
   protocolConfidence: ProtocolIdentityConfidence;
@@ -60,6 +74,8 @@ export interface TransactionUnderstanding {
     | "simulated-revert"
     | "unavailable"
     | "pending";
+  deterministicImpact?: DeterministicRequestImpact;
+  simulationAssetDelta?: SimulationAssetDeltaSummary;
   evidence: string[];
   advanced: Record<string, unknown>;
 }

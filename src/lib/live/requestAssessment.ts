@@ -152,8 +152,17 @@ function evidenceFromRequest(request: LiveRequest, decision: LivePolicyDecision)
     reasons.push("Selector label is known, but parameters are not fully decoded.");
     confidence = knownProtocol ? "medium" : "low";
   } else if (decode?.status === "unknown" || decode?.status === "unavailable") {
-    reasons.push("Calldata decode is incomplete.");
-    confidence = "low";
+    if (
+      understanding.protocolConfidence === "known" &&
+      (understanding.decodeQuality === "partial-protocol-decode" ||
+        understanding.decodeQuality === "full-protocol-decode")
+    ) {
+      reasons.push("ABI evidence is incomplete, but protocol-specific decoding recognized the request.");
+      confidence = confidence === "low" ? "medium" : confidence;
+    } else {
+      reasons.push("Calldata decode is incomplete.");
+      confidence = "low";
+    }
   } else if (decode?.status === "not-applicable") {
     reasons.push("No transaction calldata decode is needed.");
   }
@@ -348,6 +357,13 @@ export function formatExecutionStatus(status: LiveRequestAssessment["executionSt
 
 function impactLineFromRequest(request: LiveRequest) {
   const summary = summarizeLiveRequest(request);
+  const understanding = understandLiveRequest(request);
+  if (understanding.deterministicImpact?.nativeValueOut && understanding.actionKind === "swap") {
+    return `Sends ${understanding.deterministicImpact.nativeValueOut}`;
+  }
+  if (understanding.deterministicImpact?.nativeValueOut) {
+    return `Native value ${understanding.deterministicImpact.nativeValueOut}`;
+  }
   if (summary.primaryAmount && summary.tokenIn && summary.tokenOut) {
     return `${summary.primaryAmount} · ${summary.tokenIn} → ${summary.tokenOut}`;
   }
@@ -367,9 +383,7 @@ function impactLineFromRequest(request: LiveRequest) {
   if (SIGNATURE_METHODS.has(request.method)) {
     return "Grants an off-chain signature, not an on-chain transfer.";
   }
-  if (request.tx?.value && request.tx.value !== "0x") {
-    return `Native value ${request.tx.value}`;
-  }
+  if (request.tx?.value && request.tx.value !== "0x") return "Native value present";
   return summary.userShouldCheck[0] ?? "Review DApp, chain, target, value, and wallet prompt.";
 }
 

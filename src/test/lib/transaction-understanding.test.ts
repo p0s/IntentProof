@@ -61,10 +61,42 @@ describe("transaction understanding", () => {
     expect(understanding.actionKind).toBe("swap");
     expect(understanding.decodeQuality).toBe("partial-protocol-decode");
     expect(understanding.actionTitle).toContain("Universal Router");
-    expect(understanding.userSummary).toContain("Recognized Uniswap V4 swap");
+    expect(understanding.userSummary).toContain("Request a Uniswap V4 swap");
     expect(understanding.evidence.join(" ")).toContain("Partial V4 decode");
     expect(understanding.assetAuthorityKind).toBe("value-transfer");
     expect(understanding.riskLevel).toBe("needs-review");
+    expect(understanding.deterministicImpact?.nativeValueOut).toBe("0.009508 ETH");
+    expect(understanding.deterministicImpact?.nativeValueOutExact).toBe(
+      "0.009508055402315776 ETH",
+    );
+    expect(understanding.deterministicImpact?.nativeValueOutWei).toBe(
+      "9508055402315776",
+    );
+    expect(understanding.simulationAssetDelta?.summary).not.toBe("Asset changes 0");
+  });
+
+  it("formats main Uniswap native-value swap amounts without excessive precision", () => {
+    const request = normalizeLiveRequest({
+      id: "uniswap-v4-short-value",
+      origin: "app.uniswap.org",
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: "0x7777777777777777777777777777777777777777",
+          to: "0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca",
+          value: "0x21f1caa940e86",
+          data: buildUniversalRouterUnsupportedV4Calldata(),
+          chainId: "0x1",
+        },
+      ],
+    });
+
+    const understanding = understandLiveRequest(request);
+
+    expect(understanding.actionTitle).toContain("Swap 0.000597 ETH");
+    expect(understanding.valueSummary).toBe("0.000597 ETH");
+    expect(understanding.advanced.nativeValueOutExact).toBe("0.000597157934796422 ETH");
+    expect(understanding.advanced.nativeValueOutWei).toBe("597157934796422");
   });
 
   it("decodes Lido submit as ETH staking", () => {

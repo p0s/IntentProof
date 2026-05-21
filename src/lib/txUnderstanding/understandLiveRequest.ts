@@ -3,7 +3,13 @@ import type { LiveRequest } from "../live/types";
 import { resolveLiveAbiEvidence } from "./abiResolver";
 import { identifyProtocol } from "./protocolIdentity";
 import { decodeKnownProtocolRequest } from "./protocolDecoders";
-import { formatNativeValue, selector, shortAddress } from "./protocolDecoders/helpers";
+import {
+  formatNativeValue,
+  formatNativeValueExact,
+  nativeValueWei,
+  selector,
+  shortAddress,
+} from "./protocolDecoders/helpers";
 import type { TransactionUnderstanding } from "./types";
 
 function mapSimulationStatus(request: LiveRequest): TransactionUnderstanding["simulationStatus"] {
@@ -41,6 +47,46 @@ function applySharedState(
   if (simulationStatus === "simulated-revert") {
     riskReasons.push("Execution simulation indicates the request may revert.");
   }
+  const nativeValueOut = formatNativeValue(request);
+  const nativeValueOutExact = formatNativeValueExact(request);
+  const nativeValueOutWei = nativeValueWei(request);
+  const simulationAssetDelta =
+    request.evidence?.simulation.assetChanges.length
+      ? {
+          status: "available" as const,
+          summary: `${request.evidence.simulation.assetChanges.length} parsed asset change(s) returned by ${request.evidence.simulation.provider}.`,
+        }
+      : request.evidence?.simulation.status === "success"
+        ? {
+            status: "not-parsed" as const,
+            summary: "Simulation did not return parsed asset changes.",
+          }
+        : {
+            status: "unavailable" as const,
+            summary: "Asset-change preview unavailable.",
+          };
+  const deterministicImpact = {
+    ...understanding.deterministicImpact,
+    nativeValueOut: understanding.deterministicImpact?.nativeValueOut ?? nativeValueOut,
+    nativeValueOutExact:
+      understanding.deterministicImpact?.nativeValueOutExact ?? nativeValueOutExact,
+    nativeValueOutWei:
+      understanding.deterministicImpact?.nativeValueOutWei ?? nativeValueOutWei,
+    tokenApproval:
+      understanding.deterministicImpact?.tokenApproval ??
+      (understanding.assetAuthorityKind === "limited-token-approval" ||
+      understanding.assetAuthorityKind === "unlimited-token-approval"
+        ? understanding.amountIn ?? understanding.assetAuthorityKind
+        : undefined),
+    permit2:
+      understanding.deterministicImpact?.permit2 ??
+      (understanding.assetAuthorityKind === "permit2" ? "Permit2 authority detected" : undefined),
+    signatureAuthority:
+      understanding.deterministicImpact?.signatureAuthority ??
+      (understanding.assetAuthorityKind === "signature-authority"
+        ? "Signature authority requested"
+        : undefined),
+  };
 
   return {
     ...understanding,
@@ -61,9 +107,13 @@ function applySharedState(
           : understanding.riskLevel,
     riskReasons: Array.from(new Set(riskReasons)),
     simulationStatus,
+    deterministicImpact,
+    simulationAssetDelta,
     evidence,
     advanced: {
       ...understanding.advanced,
+      nativeValueOutExact,
+      nativeValueOutWei,
       protocolIdentity: protocol,
       simulation: request.evidence?.simulation,
     },

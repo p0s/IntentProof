@@ -121,6 +121,29 @@ function decodeEvidenceLabel(request: LiveRequest) {
   return "unavailable";
 }
 
+function assetDeltaLabel(request: LiveRequest, understanding: ReturnType<typeof understandLiveRequest>) {
+  if (request.evidence?.simulation.assetChanges.length) {
+    return `${request.evidence.simulation.assetChanges.length} parsed change(s)`;
+  }
+  if (understanding.deterministicImpact?.nativeValueOut) {
+    return understanding.simulationAssetDelta?.summary ?? "Asset-change preview unavailable";
+  }
+  return understanding.simulationAssetDelta?.summary ?? "No parsed asset changes";
+}
+
+function resultHeadline(
+  presentationLabel: string,
+  understanding: ReturnType<typeof understandLiveRequest>,
+) {
+  if (
+    understanding.protocolConfidence === "known" &&
+    understanding.riskLevel === "needs-review"
+  ) {
+    return `Recognized ${understanding.protocolName} request · Needs review`;
+  }
+  return presentationLabel;
+}
+
 export function LiveRequestCard({
   request,
   decision,
@@ -152,6 +175,10 @@ export function LiveRequestCard({
   const presentation = presentWalletRequest({ request, decision });
   const semanticSummary = summarizeLiveRequest(request);
   const understanding = understandLiveRequest(request);
+  const intentProofResultHeadline = resultHeadline(
+    presentation.statusLabel,
+    understanding,
+  );
   const forwardButtonLabel = coordinationRequest
     ? "Answer locally"
     : forwardTargetLabel === "Local Token Core Vault"
@@ -198,7 +225,13 @@ export function LiveRequestCard({
         {understanding.valueSummary ? (
           <div>
             <span>Native value</span>
-            <strong>{understanding.valueSummary}</strong>
+            <strong>Sends {understanding.valueSummary}</strong>
+          </div>
+        ) : null}
+        {understanding.router ? (
+          <div>
+            <span>Router</span>
+            <strong>Uses {understanding.contractLabel ?? semanticSummary.subtitle}</strong>
           </div>
         ) : null}
         {understanding.assetAuthorityKind === "none" ? (
@@ -213,6 +246,13 @@ export function LiveRequestCard({
           <div>
             <span>Permit2 / approval</span>
             <strong>No Permit2 permission detected</strong>
+          </div>
+        ) : null}
+        {understanding.actionKind === "swap" &&
+        understanding.decodeQuality === "partial-protocol-decode" ? (
+          <div>
+            <span>Output details</span>
+            <strong>Output token / minimum received not fully decoded yet</strong>
           </div>
         ) : null}
         {understanding.assetAuthorityKind === "permit2" ? (
@@ -268,12 +308,12 @@ export function LiveRequestCard({
       <section className={`intentproof-result tone-${presentation.statusTone}`}>
         <div>
           <span className="eyebrow">IntentProof result</span>
-          <strong>{presentation.statusLabel}</strong>
+          <strong>{intentProofResultHeadline}</strong>
           <p>{decision.summary}</p>
           {understanding.decodeQuality === "partial-protocol-decode" ? (
             <p>
               {understanding.actionKind === "swap"
-                ? "Recognized protocol flow with partial route decoding. Verify the missing route details in the connected wallet."
+                ? "Route details are partially decoded. Verify token out, minimum received, and recipient in imToken before forwarding."
                 : "Recognized request with partial decode evidence."}
             </p>
           ) : null}
@@ -332,7 +372,11 @@ export function LiveRequestCard({
           </div>
           <div>
             <span>Native value</span>
-            <strong>{hexValueLabel(request.tx?.value)}</strong>
+            <strong>
+              {understanding.deterministicImpact?.nativeValueOutExact
+                ? `${understanding.deterministicImpact.nativeValueOutExact} · ${hexValueLabel(request.tx?.value)}`
+                : hexValueLabel(request.tx?.value)}
+            </strong>
           </div>
           <div>
             <span>Calldata selector</span>
@@ -360,7 +404,7 @@ export function LiveRequestCard({
           </div>
           <div>
             <span>Asset changes</span>
-            <strong>{request.evidence?.simulation.assetChanges.length ?? 0}</strong>
+            <strong>{assetDeltaLabel(request, understanding)}</strong>
           </div>
         </div>
         <p className="simulation-boundary-note">
