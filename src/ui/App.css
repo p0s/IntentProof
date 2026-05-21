@@ -995,59 +995,71 @@
   box-shadow: var(--shadow-soft);
 }
 
-.ai-tools-row {
+.ai-review-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
-  gap: 10px;
-  align-items: stretch;
+  gap: 12px;
+  border: 1px solid rgba(22, 119, 255, 0.16);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(247, 251, 255, 0.94), rgba(255, 255, 255, 0.88)),
+    var(--surface-bg);
+  padding: 12px;
 }
 
-.ai-briefing-card {
+.ai-review-topline {
   display: grid;
-  gap: 10px;
-  align-content: start;
-  border: 1px solid rgba(22, 119, 255, 0.12);
-  border-radius: 14px;
-  background: rgba(22, 119, 255, 0.05);
-  padding: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 210px);
+  gap: 12px;
+  align-items: end;
 }
 
-.ai-briefing-card > div {
+.ai-review-topline > div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
-.ai-briefing-card p {
+.ai-review-topline strong {
+  color: var(--text-h);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.ai-review-topline p {
   margin: 0;
   color: var(--text-soft);
   font-size: 13px;
   line-height: 1.45;
 }
 
-.ai-briefing-card span {
+.ai-review-topline span,
+.ai-review-actions span,
+.ai-model-field span {
   color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.ai-model-field {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-model-field select {
+  min-height: 40px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 760;
 }
 
-.compact-browser-ai {
-  margin: 0;
-  padding: 10px;
-  border-radius: 14px;
+.ai-review-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.compact-browser-ai .browser-ai-panel-header {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-}
-
-.compact-browser-ai .browser-ai-panel-header p {
-  margin-top: 2px;
-}
-
-.compact-browser-ai .browser-ai-controls {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+.ai-review-actions button {
+  min-height: 42px;
+  padding: 9px 10px;
+  font-size: 13px;
 }
 
 .browser-ai-cache-status {
@@ -2931,7 +2943,7 @@ a:hover {
   color: #b8c0cc;
 }
 
-.intentproof-shell[data-theme="dark"] .ai-briefing-card,
+.intentproof-shell[data-theme="dark"] .ai-review-card,
 .intentproof-shell[data-theme="dark"] .request-inbox-tabs,
 .intentproof-shell[data-theme="dark"] .batch-ai-summary,
 .intentproof-shell[data-theme="dark"] .batch-ai-request-item,
@@ -3217,12 +3229,13 @@ a:hover {
   }
 
   .browser-ai-panel-header,
-  .ai-tools-row,
+  .ai-review-topline,
   .browser-ai-result dl,
   .browser-ai-columns {
     grid-template-columns: 1fr;
   }
 
+  .ai-review-actions,
   .compact-browser-ai .browser-ai-controls {
     grid-template-columns: 1fr;
   }

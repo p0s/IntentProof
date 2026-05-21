@@ -608,18 +608,20 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/^BLOCK$/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Review all action-required requests" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review inbox" })).toBeInTheDocument();
     const requestInbox = screen.getByRole("heading", { name: "Request Inbox" }).closest("section");
     expect(requestInbox).not.toBeNull();
     expect(within(requestInbox as HTMLElement).getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review selected" })).toBeInTheDocument();
     const localAiModelSelect = screen.getByRole("combobox", { name: "Model" });
     expect(localAiModelSelect).toHaveTextContent("SmolLM2");
     expect(localAiModelSelect.closest("details")).toBeNull();
     expect(screen.queryByText(/Largest option kept under the 1 GB local-model budget/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Optional local AI")).not.toBeInTheDocument();
     expect(screen.queryByText("Review normalized packet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected request")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Runs in this browser on the normalized request packet/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Simulation shows whether the request is likely to execute/i)).toBeInTheDocument();
     expect(screen.queryByText(/specialized summary/i)).not.toBeInTheDocument();
 
@@ -657,7 +659,7 @@ describe("App smoke test", () => {
 
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "Qwen2.5-0.5B-Instruct-q4f16_1-MLC");
-    await user.click(screen.getByRole("button", { name: "Run local AI check" }));
+    await user.click(screen.getByRole("button", { name: "Review selected" }));
 
     expect(await screen.findByText("Review the normalized request")).toBeInTheDocument();
     expect(screen.getByText("The local model reviewed the decoded IntentProof packet.")).toBeInTheDocument();
@@ -680,7 +682,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Review all action-required requests" }));
+    await user.click(screen.getByRole("button", { name: "Review inbox" }));
 
     expect(
       await screen.findByText(
@@ -708,7 +710,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Delete local AI model files" }));
+    await user.click(screen.getByRole("button", { name: "Delete models" }));
 
     expect(
       await screen.findByText(/Deleted 3 local AI model cache entries/i),
