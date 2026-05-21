@@ -73,7 +73,7 @@ function tokenLabel(chainKey: DemoChainKey, address?: string) {
 function formatTokenAmount(chainKey: DemoChainKey, address: string | undefined, amount?: bigint) {
   if (amount === undefined) return undefined;
   const token = tokenInfo(chainKey, address);
-  if (!token) return `${amount.toString()} raw units`;
+  if (!token) return "encoded token amount";
   return `${formatUnits(amount, token.decimals)} ${token.symbol}`;
 }
 

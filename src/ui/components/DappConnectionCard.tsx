@@ -100,6 +100,7 @@ export function DappConnectionCard({
   const [scanStatus, setScanStatus] = useState("Ready to scan a WalletConnect QR.");
   const [dragActive, setDragActive] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [setupExpanded, setSetupExpanded] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<QrScannerControls | undefined>(undefined);
   const hasRoutedUri = uriSource === "route" && pairingUri.trim().length > 0;
@@ -112,6 +113,8 @@ export function DappConnectionCard({
     state.status !== "idle" && state.detail.trim().length > 0;
   const canCloseConnections = state.status === "connected";
   const connectedSessions = state.sessions ?? [];
+  const hasConnectedDapps = connectedSessions.length > 0 || state.status === "connected";
+  const showConnectionSetup = hasRoutedUri || !hasConnectedDapps || setupExpanded;
   const buttonLabel =
     !signerConnected && hasValidPairingUri
       ? "Connect signer first"
@@ -125,6 +128,7 @@ export function DappConnectionCard({
       try {
         const uri = await decodeWalletConnectQrFromFile(file);
         onPairingUriChange(uri);
+        setSetupExpanded(true);
         setScanStatus("WalletConnect URI detected from pasted screenshot.");
       } catch (error) {
         setScanStatus(
@@ -198,6 +202,7 @@ export function DappConnectionCard({
     try {
       const uri = await decodeWalletConnectQrFromFile(file);
       onPairingUriChange(uri);
+      setSetupExpanded(true);
       setScanStatus("WalletConnect URI detected from uploaded image.");
     } catch (error) {
       setScanStatus(
@@ -223,6 +228,11 @@ export function DappConnectionCard({
     setDragActive(false);
     const file = event.dataTransfer.files?.[0];
     if (file) void handleUploadQr(file);
+  }
+
+  function handleConnectDapp() {
+    onConnect();
+    if (!hasRoutedUri) setSetupExpanded(false);
   }
 
   return (
@@ -264,7 +274,7 @@ export function DappConnectionCard({
               className="button-secondary compact-close-button"
               onClick={onResetLiveSessions}
             >
-              Close connections
+              Disconnect
             </button>
           </div>
           <ul className="connected-dapps-list">
@@ -284,12 +294,21 @@ export function DappConnectionCard({
           </ul>
         </section>
       ) : null}
+      {hasConnectedDapps && !showConnectionSetup ? (
+        <button
+          type="button"
+          className="button-secondary compact-close-button"
+          onClick={() => setSetupExpanded(true)}
+        >
+          Connect another DApp
+        </button>
+      ) : null}
       {hasRoutedUri ? (
         <div className="live-status connected">
           <strong>DApp route detected</strong>
           <span>WalletConnect URI captured from the URL and hidden from the address bar.</span>
         </div>
-      ) : (
+      ) : showConnectionSetup ? (
         <>
           <div className="dapp-intake-grid" aria-label="DApp connection intake">
             <button
@@ -361,7 +380,7 @@ export function DappConnectionCard({
             Optional integration example: <a href="/demo-dapp">demo merchant</a>.
           </p>
         </>
-      )}
+      ) : null}
       {!projectIdPresent ? (
         <WalletConnectSetupNotice>
           Live DApp routing needs VITE_WALLETCONNECT_PROJECT_ID. Examples
@@ -386,16 +405,18 @@ export function DappConnectionCard({
           </button>
         </div>
       ) : null}
-      <button
-        type="button"
-        onClick={onConnect}
-        disabled={!canPair}
-      >
-        {buttonLabel}
-      </button>
+      {showConnectionSetup ? (
+        <button
+          type="button"
+          onClick={handleConnectDapp}
+          disabled={!canPair}
+        >
+          {buttonLabel}
+        </button>
+      ) : null}
       {canCloseConnections && !connectedSessions.length ? (
         <button type="button" className="button-secondary compact-close-button" onClick={onResetLiveSessions}>
-          Close connections
+          Disconnect
         </button>
       ) : null}
     </section>

@@ -12,11 +12,12 @@ export function MainnetGuard({
   return (
     <section className="mainnet-guard" aria-label="Mainnet warning">
       <strong>Mainnet · real assets</strong>
+      <span>Review values and addresses before forwarding.</span>
       <details>
-        <summary>Review mainnet boundary</summary>
+        <summary>More</summary>
         <p>
-          IntentProof reviews and relays to the connected wallet for final
-          signing. It never signs mainnet transactions locally.
+          IntentProof reviews the request, but the selected signer remains the
+          final checkpoint. IntentProof does not custody imToken keys.
         </p>
         <p className="small-text">Full target address: {request.tx?.to ?? "n/a"}</p>
       </details>

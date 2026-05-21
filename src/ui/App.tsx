@@ -2246,6 +2246,28 @@ function App({ liveClients }: AppProps = {}) {
       ) : null}
       {activeProductTab === "protect" ? (
         <ProtectWalletScreen
+          statusSummary={
+            <div className="protect-status-metrics" aria-label="Protect Wallet status">
+              <span>
+                <strong>{activeSignerAccount ? "Connected" : "No signer"}</strong>
+                {signerSourceLabel(signerSource)}
+              </span>
+              <span>
+                <strong>
+                  {networkOptions.find((option) => option.value === selectedNetworkChainKey)?.label ?? "Network"}
+                </strong>
+                Network
+              </span>
+              <span>
+                <strong>{dappState.sessions?.length ?? 0}</strong>
+                DApps
+              </span>
+              <span>
+                <strong>{liveRequests.length}</strong>
+                Action required
+              </span>
+            </div>
+          }
           signerPanel={
             <SignerSourceSelector
               source={signerSource}
@@ -2291,6 +2313,7 @@ function App({ liveClients }: AppProps = {}) {
           requestInbox={
             <RequestInbox
               requests={liveRequests}
+              activity={liveActivity}
               selectedRequestId={selectedLiveRequest?.id}
               onSelect={(requestId) => {
                 setSelectedLiveRequestId(requestId);

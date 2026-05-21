@@ -1,15 +1,17 @@
+import { useMemo, useState } from "react";
+
 import type { BatchAiReview } from "../../lib/live/browserAiReview";
 import {
   assessLiveRequest,
-  formatEvidenceConfidence,
   formatExecutionStatus,
-  formatRiskLevel,
+  presentWalletRequest,
 } from "../../lib/live/requestAssessment";
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
-import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
+import type { LivePolicyDecision, LiveReceipt, LiveRequest } from "../../lib/live/types";
 
 interface RequestInboxProps {
   requests: LiveRequest[];
+  activity: LiveReceipt[];
   selectedRequestId?: string;
   getDecision: (request: LiveRequest) => LivePolicyDecision;
   onSelect: (requestId: string) => void;
@@ -33,6 +35,7 @@ export interface LocalAiCacheState {
 
 export function RequestInbox({
   requests,
+  activity,
   selectedRequestId,
   getDecision,
   onSelect,
@@ -41,16 +44,68 @@ export function RequestInbox({
   localAiCacheState,
   onClearLocalAiCache,
 }: RequestInboxProps) {
+  const [activeFilter, setActiveFilter] = useState<
+    "action" | "routine" | "done" | "all"
+  >("action");
+  const routineActivity = useMemo(
+    () => activity.filter((receipt) => receipt.resolvedLocally),
+    [activity],
+  );
+  const doneActivity = useMemo(
+    () => activity.filter((receipt) => !receipt.resolvedLocally),
+    [activity],
+  );
+  const shownRequests = activeFilter === "routine" || activeFilter === "done" ? [] : requests;
+  const shownActivity =
+    activeFilter === "routine"
+      ? routineActivity
+      : activeFilter === "done"
+        ? doneActivity
+        : activeFilter === "all"
+          ? activity
+          : [];
+  const aiReviewByRequestId = new Map(
+    batchAiState.review?.requests.map((review) => [review.requestId, review]) ?? [],
+  );
+  const filteredItemCount = shownRequests.length + shownActivity.length;
+
   return (
     <section className="surface request-inbox">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Live requests</span>
+          <span className="eyebrow">Wallet approval queue</span>
           <h2>Request Inbox</h2>
         </div>
-        <span className="muted">{requests.length} request(s)</span>
+        <span className="muted">{requests.length} action required</span>
       </div>
-      <div className="batch-ai-toolbar" aria-label="Batch local AI review">
+      <div className="request-inbox-tabs" aria-label="Request inbox filters">
+        {[
+          ["action", `Action required ${requests.length}`],
+          ["routine", `Routine answered ${routineActivity.length}`],
+          ["done", `Done ${doneActivity.length}`],
+          ["all", `All ${requests.length + activity.length}`],
+        ].map(([filter, label]) => (
+          <button
+            key={filter}
+            type="button"
+            className={activeFilter === filter ? "active" : ""}
+            onClick={() => setActiveFilter(filter as typeof activeFilter)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="ai-briefing-card" aria-label="AI Inbox Briefing">
+        <div>
+          <span className="eyebrow">AI Inbox Briefing</span>
+          <strong>
+            {batchAiState.review?.overallHeadline ?? "Review open requests with local AI"}
+          </strong>
+          <p>
+            {batchAiState.review?.overallSummary ??
+              "Runs locally on normalized request packets. Advisory only; forwarding gates do not change."}
+          </p>
+        </div>
         <button
           type="button"
           className="button-secondary"
@@ -63,7 +118,7 @@ export function RequestInbox({
         >
           {batchAiState.status === "loading"
             ? "Reviewing open requests..."
-            : "Review all open requests with local AI"}
+            : "Review all action-required requests"}
         </button>
         <button
           type="button"
@@ -93,8 +148,6 @@ export function RequestInbox({
       ) : null}
       {batchAiState.review ? (
         <div className="batch-ai-summary">
-          <strong>{batchAiState.review.overallHeadline}</strong>
-          <span>{batchAiState.review.overallSummary}</span>
           {batchAiState.review.requests.length ? (
             <ul className="batch-ai-request-list">
               {batchAiState.review.requests.map((requestReview) => (
@@ -113,26 +166,31 @@ export function RequestInbox({
         </div>
       ) : null}
       <div className="request-list">
-        {requests.length === 0 ? (
+        {filteredItemCount === 0 ? (
           <div className="empty-inbox">
-            <strong>No live DApp requests yet.</strong>
+            <strong>
+              {activeFilter === "action"
+                ? "No action required."
+                : "Nothing to show here yet."}
+            </strong>
             <span>
-              Once a connected DApp asks to sign or send a transaction, the
-              real request will appear here. The network selector sets your
-              default review posture; IntentProof reads each request chain from
-              WalletConnect.
+              {activeFilter === "action"
+                ? "When a connected DApp asks to sign, approve, switch networks, or send a transaction, it appears here."
+                : "Handled requests are written to local Activity without storing secrets."}
             </span>
           </div>
         ) : null}
-        {requests.map((request) => {
+        {shownRequests.map((request) => {
           const decision = getDecision(request);
           const assessment = assessLiveRequest({ request, decision });
+          const presentation = presentWalletRequest({ request, decision });
           const summary = summarizeLiveRequest(request);
+          const aiReview = aiReviewByRequestId.get(request.id);
           return (
             <button
               key={request.id}
               type="button"
-              aria-label={`${assessment.sourceLabel} ${summary.title} Evidence ${assessment.evidenceConfidence} Risk ${assessment.riskLevel} Execution ${assessment.executionStatus}`}
+              aria-label={`${assessment.sourceLabel} ${presentation.rowTitle} ${presentation.statusLabel} ${request.chain.label}`}
               className={
                 request.id === selectedRequestId
                   ? "request-row active"
@@ -140,27 +198,65 @@ export function RequestInbox({
               }
               onClick={() => onSelect(request.id)}
             >
-              <span>{assessment.sourceLabel}</span>
-              <strong>{summary.title}</strong>
-              <small className="request-reason">{summary.whatItWants}</small>
+              <span className="request-dapp-avatar" aria-hidden="true">
+                {assessment.sourceLabel.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="request-row-main">
+                <span className="request-row-source">{assessment.sourceLabel}</span>
+                <strong>{presentation.rowTitle}</strong>
+                <small className="request-row-impact">{presentation.impactLine}</small>
+                {aiReview ? (
+                  <small className={`request-row-ai attention-${aiReview.attentionLevel}`}>
+                    AI: {aiReview.judgement}
+                  </small>
+                ) : null}
+              </span>
               <span className="request-row-meta">
-                <em className={`assessment-pill evidence-${assessment.evidenceConfidence}`}>
-                  Evidence {formatEvidenceConfidence(assessment.evidenceConfidence)}
+                <em className={`request-row-status tone-${presentation.statusTone}`}>
+                  {presentation.statusLabel}
                 </em>
-                <em className={`assessment-pill risk-${assessment.riskLevel}`}>
-                  Risk {formatRiskLevel(assessment.riskLevel)}
+                <em className="chain-badge">
+                  {request.chain.environment === "mainnet"
+                    ? "Mainnet"
+                    : request.chain.label}
                 </em>
-                <em className={`assessment-pill execution-${assessment.executionStatus}`}>
-                  Execution {formatExecutionStatus(assessment.executionStatus)}
-                </em>
-                <small>{request.chain.label}</small>
               </span>
               <small className="request-evidence-line">
-                {assessment.evidenceReasons[0]} · {assessment.userActionLabel}
+                {assessment.evidenceConfidence === "high" ? "Recognized" : "Source not profiled"} ·{" "}
+                {formatExecutionStatus(assessment.executionStatus)} ·{" "}
+                {summary.chips.slice(0, 2).join(" · ")}
               </small>
             </button>
           );
         })}
+        {shownActivity.map((receipt) => (
+          <div key={receipt.id} className="request-row activity-row">
+            <span className="request-dapp-avatar" aria-hidden="true">
+              {receipt.origin.slice(0, 2).toUpperCase()}
+            </span>
+            <span className="request-row-main">
+              <span className="request-row-source">{receipt.origin}</span>
+              <strong>{receipt.method}</strong>
+              <small className="request-row-impact">
+                {receipt.resolvedLocally
+                  ? "Answered locally so the DApp could continue."
+                  : receipt.rejected
+                    ? "Rejected by user or policy."
+                    : "Forwarded to the selected signer."}
+              </small>
+            </span>
+            <span className="request-row-meta">
+              <em className={`request-row-status ${receipt.rejected ? "tone-danger" : "tone-neutral"}`}>
+                {receipt.resolvedLocally
+                  ? "Routine answered"
+                  : receipt.rejected
+                    ? "Rejected"
+                    : "Done"}
+              </em>
+              <em className="chain-badge">{receipt.chainLabel}</em>
+            </span>
+          </div>
+        ))}
       </div>
     </section>
   );

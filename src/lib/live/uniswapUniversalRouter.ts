@@ -14,6 +14,13 @@ const UNIVERSAL_ROUTER_ABI = parseAbi([
 ]);
 
 const MAX_UINT160 = (1n << 160n) - 1n;
+const KNOWN_TOKEN_METADATA: Record<string, { symbol: string; decimals: number }> = {
+  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { symbol: "USDC", decimals: 6 },
+  "0xdac17f958d2ee523a2206206994597c13d831ec7": { symbol: "USDT", decimals: 6 },
+  "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { symbol: "WETH", decimals: 18 },
+  "0x4200000000000000000000000000000000000006": { symbol: "WETH", decimals: 18 },
+  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { symbol: "USDC", decimals: 6 },
+};
 
 const COMMAND_NAMES: Record<number, string> = {
   0x00: "V3_SWAP_EXACT_IN",
@@ -95,6 +102,22 @@ function shortAddress(address?: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function tokenLabel(address?: string) {
+  if (!address) return "unknown token";
+  return KNOWN_TOKEN_METADATA[address.toLowerCase()]?.symbol ?? shortAddress(address);
+}
+
+function formatKnownTokenAmount(amount: bigint, token?: string) {
+  const metadata = token ? KNOWN_TOKEN_METADATA[token.toLowerCase()] : undefined;
+  if (!metadata) return `${amount.toString()} encoded token amount`;
+  const divisor = 10n ** BigInt(metadata.decimals);
+  const whole = amount / divisor;
+  const fraction = amount % divisor;
+  if (fraction === 0n) return `${whole.toString()} ${metadata.symbol}`;
+  const padded = fraction.toString().padStart(metadata.decimals, "0").replace(/0+$/, "");
+  return `${whole.toString()}.${padded} ${metadata.symbol}`;
+}
+
 function commandBytes(commands: Hex) {
   const body = commands.slice(2);
   if (body.length === 0 || body.length % 2 !== 0) return [];
@@ -121,7 +144,7 @@ function decodeV3Path(path: Hex) {
 
 function tokenPathSummary(tokens: readonly Address[]) {
   if (tokens.length === 0) return "path unavailable";
-  return tokens.map(shortAddress).join(" -> ");
+  return tokens.map(tokenLabel).join(" -> ");
 }
 
 function decodeV3Swap(input: Hex, exactIn: boolean): DecodedUniversalRouterCommand {
@@ -155,8 +178,8 @@ function decodeV3Swap(input: Hex, exactIn: boolean): DecodedUniversalRouterComma
     amountOutMinimum: exactIn ? secondaryAmount : undefined,
     amountInMaximum: exactIn ? undefined : secondaryAmount,
     summary: exactIn
-      ? `V3 exact-in swap ${primaryAmount.toString()} raw units for at least ${secondaryAmount.toString()} via ${tokenPathSummary(tokens)}`
-      : `V3 exact-out swap ${primaryAmount.toString()} raw units using at most ${secondaryAmount.toString()} via ${tokenPathSummary(tokens)}`,
+      ? `V3 exact-in swap ${formatKnownTokenAmount(primaryAmount, tokens[0])} for at least ${formatKnownTokenAmount(secondaryAmount, tokens.at(-1))} via ${tokenPathSummary(tokens)}`
+      : `V3 exact-out swap ${formatKnownTokenAmount(primaryAmount, tokens.at(-1))} using at most ${formatKnownTokenAmount(secondaryAmount, tokens[0])} via ${tokenPathSummary(tokens)}`,
   };
 }
 
@@ -190,8 +213,8 @@ function decodeV2Swap(input: Hex, exactIn: boolean): DecodedUniversalRouterComma
     amountOutMinimum: exactIn ? secondaryAmount : undefined,
     amountInMaximum: exactIn ? undefined : secondaryAmount,
     summary: exactIn
-      ? `V2 exact-in swap ${primaryAmount.toString()} raw units for at least ${secondaryAmount.toString()} via ${tokenPathSummary(path)}`
-      : `V2 exact-out swap ${primaryAmount.toString()} raw units using at most ${secondaryAmount.toString()} via ${tokenPathSummary(path)}`,
+      ? `V2 exact-in swap ${formatKnownTokenAmount(primaryAmount, path[0])} for at least ${formatKnownTokenAmount(secondaryAmount, path.at(-1))} via ${tokenPathSummary(path)}`
+      : `V2 exact-out swap ${formatKnownTokenAmount(primaryAmount, path.at(-1))} using at most ${formatKnownTokenAmount(secondaryAmount, path[0])} via ${tokenPathSummary(path)}`,
   };
 }
 
@@ -226,7 +249,7 @@ function decodeSimpleTransferCommand(
     token,
     recipient,
     amountIn: value,
-    summary: `${commandName(command)} ${value.toString()} raw units of ${shortAddress(token)} to ${shortAddress(recipient)}`,
+    summary: `${commandName(command)} ${formatKnownTokenAmount(value, token)} of ${tokenLabel(token)} to ${shortAddress(recipient)}`,
   };
 }
 
@@ -245,7 +268,7 @@ function decodeTwoArgPaymentCommand(
     supported: true,
     recipient,
     amountIn: amount,
-    summary: `${commandName(command)} ${amount.toString()} raw units for ${shortAddress(recipient)}`,
+    summary: `${commandName(command)} ${amount.toString()} encoded token amount for ${shortAddress(recipient)}`,
   };
 }
 
@@ -266,7 +289,7 @@ function decodePermit2Transfer(input: Hex): DecodedUniversalRouterCommand {
     token,
     recipient,
     amountIn: amount,
-    summary: `Permit2 transfers ${amount.toString()} raw units of ${shortAddress(token)} to ${shortAddress(recipient)}`,
+    summary: `Permit2 transfers ${formatKnownTokenAmount(amount, token)} of ${tokenLabel(token)} to ${shortAddress(recipient)}`,
   };
 }
 
@@ -328,7 +351,7 @@ function decodePermit2Permit(input: Hex): DecodedUniversalRouterCommand {
     recipient: permit.spender,
     amountIn: amount,
     hasUnlimitedPermit: unlimited,
-    summary: `Permit2 permit for ${amount.toString()} raw units of ${shortAddress(permit.token)} to ${shortAddress(permit.spender)}`,
+    summary: `Permit2 permit for ${formatKnownTokenAmount(amount, permit.token)} of ${tokenLabel(permit.token)} to ${shortAddress(permit.spender)}`,
   };
 }
 

@@ -4,9 +4,7 @@ import type {
 } from "../../lib/live/browserAiReview";
 import {
   assessLiveRequest,
-  formatEvidenceConfidence,
-  formatExecutionStatus,
-  formatRiskLevel,
+  presentWalletRequest,
 } from "../../lib/live/requestAssessment";
 import { summarizeLiveRequest } from "../../lib/live/semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "../../lib/live/types";
@@ -171,6 +169,7 @@ export function LiveRequestCard({
     : request.chain.label;
   const coordinationRequest = isWalletCoordinationRequest(request);
   const assessment = assessLiveRequest({ request, decision });
+  const presentation = presentWalletRequest({ request, decision });
   const semanticSummary = summarizeLiveRequest(request);
   const forwardButtonLabel = coordinationRequest
     ? "Answer locally"
@@ -190,18 +189,16 @@ export function LiveRequestCard({
           <h2>{semanticSummary.title}</h2>
         </div>
         <div className="compact-label-row">
-          <span className={`assessment-pill evidence-${assessment.evidenceConfidence}`}>
-            Evidence {formatEvidenceConfidence(assessment.evidenceConfidence)}
+          <span className={`request-row-status tone-${presentation.statusTone}`}>
+            {presentation.statusLabel}
           </span>
-          <span className={`assessment-pill risk-${assessment.riskLevel}`}>
-            Risk {formatRiskLevel(assessment.riskLevel)}
-          </span>
-          <span className={`assessment-pill execution-${assessment.executionStatus}`}>
-            Execution {formatExecutionStatus(assessment.executionStatus)}
-          </span>
+          <span className="chain-badge">{chainLabel}</span>
+          {request.chain.environment === "mainnet" ? (
+            <span className="mainnet-compact-badge">Mainnet · real assets</span>
+          ) : null}
         </div>
       </div>
-      <section className="semantic-summary-panel">
+      <section className="request-detail-hero">
         <span className="eyebrow">What this request wants</span>
         <strong>{semanticSummary.whatItWants}</strong>
         {semanticSummary.whyDappNeedsIt ? <p>{semanticSummary.whyDappNeedsIt}</p> : null}
@@ -209,94 +206,82 @@ export function LiveRequestCard({
           {semanticSummary.chips.map((chip) => (
             <span key={chip}>{chip}</span>
           ))}
-          {request.chain.environment === "mainnet" ? (
-            <span className="mainnet-compact-badge">Mainnet · real assets</span>
-          ) : null}
         </div>
       </section>
-      <div className="facts-grid">
+      <MainnetGuard request={request} />
+      <section className="impact-grid" aria-label="Request impact">
         <div>
-          <span>Origin</span>
-          <strong>{request.origin}</strong>
+          <span>Impact</span>
+          <strong>{presentation.impactLine}</strong>
         </div>
+        {semanticSummary.primaryAmount ? (
+          <div>
+            <span>Amount</span>
+            <strong>{semanticSummary.primaryAmount}</strong>
+          </div>
+        ) : null}
+        {semanticSummary.tokenIn || semanticSummary.tokenOut ? (
+          <div>
+            <span>Route</span>
+            <strong>
+              {[semanticSummary.tokenIn, semanticSummary.tokenOut].filter(Boolean).join(" → ")}
+            </strong>
+          </div>
+        ) : null}
+        {semanticSummary.recipient ? (
+          <div>
+            <span>Recipient / contract</span>
+            <strong>{semanticSummary.recipient}</strong>
+          </div>
+        ) : null}
+        {semanticSummary.spender ? (
+          <div>
+            <span>Spender</span>
+            <strong>{semanticSummary.spender}</strong>
+          </div>
+        ) : null}
+        {request.method.includes("sign") && payload.preview ? (
+          <div>
+            <span>Signature payload</span>
+            <strong>{payload.preview.split("\n")[0]}</strong>
+          </div>
+        ) : null}
+      </section>
+      <section className={`intentproof-result tone-${presentation.statusTone}`}>
         <div>
-          <span>Request</span>
-          <strong>{describeLiveRequestMethod(request)}</strong>
+          <span className="eyebrow">IntentProof result</span>
+          <strong>{presentation.statusLabel}</strong>
+          <p>{decision.summary}</p>
         </div>
-        <div>
-          <span>Chain</span>
-          <strong>{chainLabel}</strong>
-        </div>
-        <div>
-          <span>Signer address</span>
-          <strong>{request.tx?.from ?? "n/a"}</strong>
-        </div>
-        <div>
-          <span>Full target address</span>
-          <strong>{request.tx?.to ?? "n/a"}</strong>
-        </div>
-        <div>
-          <span>Native value</span>
-          <strong>{hexValueLabel(request.tx?.value)}</strong>
-        </div>
-        <div>
-          <span>Calldata selector</span>
-          <strong>{calldataSelector(request.tx?.data)}</strong>
-        </div>
-        <div>
-          <span>Calldata length</span>
-          <strong>{calldataByteLength(request.tx?.data)}</strong>
-        </div>
-        <div>
-          <span>Evidence score</span>
-          <strong>{assessment.evidenceScore}/100</strong>
-        </div>
-        <div>
-          <span>User action</span>
-          <strong>{assessment.userActionLabel}</strong>
-        </div>
-        <div>
-          <span>Execution simulation</span>
-          <strong>{simulationLabel(request)}</strong>
-        </div>
-        <div>
-          <span>Decode evidence</span>
-          <strong>{decodeEvidenceLabel(request)}</strong>
-        </div>
-        <div>
-          <span>Asset changes</span>
-          <strong>{request.evidence?.simulation.assetChanges.length ?? 0}</strong>
-        </div>
+        <ul>
+          {(decision.issues.length
+            ? decision.issues.slice(0, 3).map((issue) => `${issue.title}: ${issue.description}`)
+            : semanticSummary.userShouldCheck.slice(0, 2)
+          ).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+      {decision.requiresAcknowledgement ? (
+        <label className="ack-line">
+          <input
+            type="checkbox"
+            checked={warningAcknowledged}
+            onChange={(event) => onWarningAcknowledged(event.target.checked)}
+          />
+          I reviewed these details and want the selected signer to continue.
+        </label>
+      ) : null}
+      <div className="button-row request-action-bar">
+        <button type="button" className="primary-action" onClick={onForward} disabled={!decision.canForward}>
+          {decision.severity === "block"
+            ? "Cannot relay with IntentProof"
+            : forwardButtonLabel}
+        </button>
+        <button type="button" className="button-secondary" onClick={onReject}>
+          Reject request
+        </button>
       </div>
-      <p className="simulation-boundary-note">
-        Simulation shows whether the request is likely to execute and what it may
-        change. It is not a malicious-transaction detector and does not prove a
-        request is safe.
-      </p>
-      <section className={`review-score-panel confidence-${assessment.evidenceConfidence}`}>
-        <div>
-          <span className="eyebrow">Evidence and risk</span>
-          <strong>{semanticSummary.subtitle}</strong>
-        </div>
-        <h3>Evidence confidence</h3>
-        <ul>
-          {assessment.evidenceReasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-        <h3>Risk level</h3>
-        <ul>
-          {assessment.riskReasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-        <h3>User should check</h3>
-        <ul>
-          {semanticSummary.userShouldCheck.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      </section>
       <section className="browser-ai-panel" aria-label="Local AI review">
         <div className="browser-ai-panel-header">
           <div>
@@ -411,62 +396,126 @@ export function LiveRequestCard({
           </div>
         ) : null}
       </section>
-      {payload.preview ? (
-        <details className="live-request-details">
-          <summary>{payload.label}</summary>
-          <pre>{payload.preview}</pre>
-        </details>
-      ) : null}
-      {vaultSigningEvidence ? (
-        <section className="semantic-summary-panel">
-          <span className="eyebrow">Local Token Core Vault signing evidence</span>
-          <strong>{vaultSigningEvidence}</strong>
-        </section>
-      ) : null}
-      <MainnetGuard request={request} />
-      <p className="decision-summary">{decision.summary}</p>
-      <div className="issue-list">
-        {decision.issues.length === 0 ? (
-          <div className="issue-row severity-pass">
-            <strong>No unusual signals found</strong>
-            <span>
-              {coordinationRequest
-                ? "This wallet coordination request can be answered locally so the DApp can continue."
-                : "Review the request details, then use imToken as the final signing checkpoint."}
-            </span>
+      <details className="advanced-evidence">
+        <summary>Advanced evidence</summary>
+        <div className="facts-grid">
+          <div>
+            <span>Origin</span>
+            <strong>{request.origin}</strong>
           </div>
-        ) : (
-          decision.issues.map((issue) => (
-            <div
-              key={`${issue.title}-${issue.description}`}
-              className={`issue-row severity-${issue.severity}`}
-            >
-              <strong>{issue.title}</strong>
-              <span>{issue.description}</span>
+          <div>
+            <span>Request</span>
+            <strong>{describeLiveRequestMethod(request)}</strong>
+          </div>
+          <div>
+            <span>Chain</span>
+            <strong>{chainLabel}</strong>
+          </div>
+          <div>
+            <span>Signer address</span>
+            <strong>{request.tx?.from ?? "n/a"}</strong>
+          </div>
+          <div>
+            <span>Full target address</span>
+            <strong>{request.tx?.to ?? "n/a"}</strong>
+          </div>
+          <div>
+            <span>Native value</span>
+            <strong>{hexValueLabel(request.tx?.value)}</strong>
+          </div>
+          <div>
+            <span>Calldata selector</span>
+            <strong>{calldataSelector(request.tx?.data)}</strong>
+          </div>
+          <div>
+            <span>Calldata length</span>
+            <strong>{calldataByteLength(request.tx?.data)}</strong>
+          </div>
+          <div>
+            <span>Evidence score</span>
+            <strong>{assessment.evidenceScore}/100</strong>
+          </div>
+          <div>
+            <span>User action</span>
+            <strong>{assessment.userActionLabel}</strong>
+          </div>
+          <div>
+            <span>Execution simulation</span>
+            <strong>{simulationLabel(request)}</strong>
+          </div>
+          <div>
+            <span>Decode evidence</span>
+            <strong>{decodeEvidenceLabel(request)}</strong>
+          </div>
+          <div>
+            <span>Asset changes</span>
+            <strong>{request.evidence?.simulation.assetChanges.length ?? 0}</strong>
+          </div>
+        </div>
+        <p className="simulation-boundary-note">
+          Simulation shows whether the request is likely to execute and what it may
+          change. It is not a malicious-transaction detector and does not prove a
+          request is safe.
+        </p>
+        <section className={`review-score-panel confidence-${assessment.evidenceConfidence}`}>
+          <div>
+            <span className="eyebrow">Evidence and risk</span>
+            <strong>{semanticSummary.subtitle}</strong>
+          </div>
+          <h3>Evidence confidence</h3>
+          <ul>
+            {assessment.evidenceReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+          <h3>Risk level</h3>
+          <ul>
+            {assessment.riskReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+          <h3>User should check</h3>
+          <ul>
+            {semanticSummary.userShouldCheck.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </section>
+        <div className="issue-list">
+          {decision.issues.length === 0 ? (
+            <div className="issue-row severity-pass">
+              <strong>No unusual signals found</strong>
+              <span>
+                {coordinationRequest
+                  ? "This wallet coordination request can be answered locally so the DApp can continue."
+                  : "Review the request details, then use imToken as the final signing checkpoint."}
+              </span>
             </div>
-          ))
-        )}
-      </div>
-      {decision.requiresAcknowledgement ? (
-        <label className="ack-line">
-          <input
-            type="checkbox"
-            checked={warningAcknowledged}
-            onChange={(event) => onWarningAcknowledged(event.target.checked)}
-          />
-          I reviewed these details and want the selected signer to continue.
-        </label>
-      ) : null}
-      <div className="button-row">
-        <button type="button" className="primary-action" onClick={onForward} disabled={!decision.canForward}>
-          {decision.severity === "block"
-            ? "Cannot relay with IntentProof"
-            : forwardButtonLabel}
-        </button>
-        <button type="button" className="button-secondary" onClick={onReject}>
-          Reject request
-        </button>
-      </div>
+          ) : (
+            decision.issues.map((issue) => (
+              <div
+                key={`${issue.title}-${issue.description}`}
+                className={`issue-row severity-${issue.severity}`}
+              >
+                <strong>{issue.title}</strong>
+                <span>{issue.description}</span>
+              </div>
+            ))
+          )}
+        </div>
+        {payload.preview ? (
+          <details className="live-request-details">
+            <summary>{payload.label}</summary>
+            <pre>{payload.preview}</pre>
+          </details>
+        ) : null}
+        {vaultSigningEvidence ? (
+          <section className="semantic-summary-panel">
+            <span className="eyebrow">Local Token Core Vault signing evidence</span>
+            <strong>{vaultSigningEvidence}</strong>
+          </section>
+        ) : null}
+      </details>
     </section>
   );
 }

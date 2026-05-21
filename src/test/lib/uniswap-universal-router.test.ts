@@ -32,7 +32,8 @@ describe("Uniswap Universal Router decoder", () => {
     expect(decoded?.commands).toHaveLength(1);
     expect(decoded?.commands[0]?.name).toBe("V3_SWAP_EXACT_IN");
     expect(decoded?.summary).toContain("V3 exact-in swap");
-    expect(decoded?.summary).toContain("9900000");
+    expect(decoded?.summary).toContain("10 USDC");
+    expect(decoded?.summary).not.toContain("raw units");
   });
 
   it("marks unsupported command streams as not supported", () => {

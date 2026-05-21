@@ -5,6 +5,7 @@ import {
   isKnownProtocolRequest,
 } from "./protocolProfiles";
 import { isReadOnlyLiveRpcMethod } from "./rpcProxy";
+import { summarizeLiveRequest } from "./semanticSummary";
 import type { LivePolicyDecision, LiveRequest } from "./types";
 
 export type EvidenceConfidence = "high" | "medium" | "low";
@@ -33,6 +34,24 @@ export interface LiveRequestAssessment {
   sourceLabel: string;
   sourceConfidence: EvidenceConfidence;
   userActionLabel: string;
+}
+
+export type WalletRequestStatus =
+  | "routine"
+  | "recognized"
+  | "needs-review"
+  | "high-impact"
+  | "blocked"
+  | "unsupported";
+
+export interface WalletRequestPresentation {
+  status: WalletRequestStatus;
+  statusLabel: string;
+  statusTone: "neutral" | "success" | "warning" | "danger";
+  primaryAction: "answer-locally" | "forward" | "reject" | "none";
+  rowTitle: string;
+  rowSubtitle: string;
+  impactLine: string;
 }
 
 const COORDINATION_METHODS = new Set([
@@ -269,4 +288,99 @@ export function formatExecutionStatus(status: LiveRequestAssessment["executionSt
   if (status === "success") return "Simulated no revert";
   if (status === "revert") return "Simulated revert";
   return status[0]!.toUpperCase() + status.slice(1);
+}
+
+function impactLineFromRequest(request: LiveRequest) {
+  const summary = summarizeLiveRequest(request);
+  if (summary.primaryAmount && summary.tokenIn && summary.tokenOut) {
+    return `${summary.primaryAmount} · ${summary.tokenIn} → ${summary.tokenOut}`;
+  }
+  if (summary.primaryAmount && summary.spender) {
+    return `${summary.primaryAmount} approval · spender ${summary.spender}`;
+  }
+  if (summary.primaryAmount && summary.recipient) {
+    return `${summary.primaryAmount} · recipient ${summary.recipient}`;
+  }
+  if (summary.spender) return `Spender ${summary.spender}`;
+  if (summary.recipient) return `Recipient ${summary.recipient}`;
+  if (summary.route) return `Route ${summary.route}`;
+  if (request.method === "wallet_switchEthereumChain") {
+    return `Switch wallet network to ${request.chain.label}`;
+  }
+  if (SIGNATURE_METHODS.has(request.method)) {
+    return "Grants an off-chain signature, not an on-chain transfer.";
+  }
+  if (request.tx?.value && request.tx.value !== "0x") {
+    return `Native value ${request.tx.value}`;
+  }
+  return summary.userShouldCheck[0] ?? "Review DApp, chain, target, value, and wallet prompt.";
+}
+
+function statusForAssessment(params: {
+  request: LiveRequest;
+  decision: LivePolicyDecision;
+  assessment: LiveRequestAssessment;
+}): Pick<WalletRequestPresentation, "status" | "statusLabel" | "statusTone" | "primaryAction"> {
+  const { request, decision, assessment } = params;
+  if (request.unsupportedReason) {
+    return {
+      status: "unsupported",
+      statusLabel: "Unsupported",
+      statusTone: "danger",
+      primaryAction: "reject",
+    };
+  }
+  if (decision.severity === "block" || assessment.riskLevel === "blocked") {
+    return {
+      status: "blocked",
+      statusLabel: "Blocked",
+      statusTone: "danger",
+      primaryAction: "reject",
+    };
+  }
+  if (assessment.riskLevel === "routine") {
+    return {
+      status: "routine",
+      statusLabel: "Routine",
+      statusTone: "neutral",
+      primaryAction: "answer-locally",
+    };
+  }
+  if (assessment.riskLevel === "high-impact") {
+    return {
+      status: "high-impact",
+      statusLabel: "High-impact permission",
+      statusTone: "danger",
+      primaryAction: "forward",
+    };
+  }
+  if (assessment.riskLevel === "needs-review" || decision.requiresAcknowledgement) {
+    return {
+      status: "needs-review",
+      statusLabel: "Needs review",
+      statusTone: "warning",
+      primaryAction: request.method === NETWORK_SWITCH_METHOD ? "answer-locally" : "forward",
+    };
+  }
+  return {
+    status: "recognized",
+    statusLabel: "Recognized",
+    statusTone: "success",
+    primaryAction: "forward",
+  };
+}
+
+export function presentWalletRequest(params: {
+  request: LiveRequest;
+  decision: LivePolicyDecision;
+}): WalletRequestPresentation {
+  const { request, decision } = params;
+  const assessment = assessLiveRequest({ request, decision });
+  const summary = summarizeLiveRequest(request);
+  return {
+    ...statusForAssessment({ request, decision, assessment }),
+    rowTitle: summary.title,
+    rowSubtitle: summary.whatItWants,
+    impactLine: impactLineFromRequest(request),
+  };
 }

@@ -163,7 +163,7 @@ describe("App smoke test", () => {
     expect(screen.queryByText("Forward or reject")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Connect a DApp" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Request Inbox" })).toBeInTheDocument();
-    expect(screen.getByText("No live DApp requests yet.")).toBeInTheDocument();
+    expect(screen.getByText("No action required.")).toBeInTheDocument();
     expect(screen.queryByText("Copy integration link")).not.toBeInTheDocument();
     expect(screen.queryByText(/Partner DApps can open IntentProof/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Optional integration example/i)).toBeInTheDocument();
@@ -447,6 +447,7 @@ describe("App smoke test", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
+    await user.click(screen.getByRole("button", { name: "Connect another DApp" }));
     await user.type(
       screen.getByRole("textbox", { name: "WalletConnect URI or QR screenshot" }),
       "wc:multi-dapp-demo@2?relay-protocol=irn&symKey=abc",
@@ -515,15 +516,17 @@ describe("App smoke test", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /0x7777/i })).toBeInTheDocument(),
     );
-    const input = screen.getByRole("textbox", { name: "WalletConnect URI or QR screenshot" });
+    await user.click(screen.getByRole("button", { name: "Connect another DApp" }));
+    const input = await screen.findByRole("textbox", { name: "WalletConnect URI or QR screenshot" });
     await user.type(input, "wc:manual-demo@2?relay-protocol=irn&symKey=abc");
     await user.click(screen.getByRole("button", { name: "Connect DApp through IntentProof" }));
 
     await waitFor(() =>
       expect(screen.getByTitle(/DApp connected/i)).toBeInTheDocument(),
     );
+    await user.click(screen.getByRole("button", { name: "Connect another DApp" }));
     expect(
-      screen.getByRole("textbox", { name: "WalletConnect URI or QR screenshot" }),
+      await screen.findByRole("textbox", { name: "WalletConnect URI or QR screenshot" }),
     ).toHaveValue("");
   });
 
@@ -580,14 +583,14 @@ describe("App smoke test", () => {
     expect(screen.getByLabelText("Mainnet warning")).toBeInTheDocument();
     expect(screen.queryByLabelText("Allow mainnet requests for this session")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
-    expect(screen.getAllByText("Risk High Impact").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
     );
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeEnabled();
   });
 
-  it("keeps populated live review surfaces evidence-first", async () => {
+  it("keeps populated live review surfaces wallet-first", async () => {
     const user = userEvent.setup();
     render(
       <App
@@ -603,9 +606,9 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/^PASS$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^WARN$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^BLOCK$/)).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Evidence /).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Risk /).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Review all open requests with local AI" })).toBeInTheDocument();
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Review all action-required requests" })).toBeInTheDocument();
     expect(screen.getByLabelText("Local AI review")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run local AI check" })).toBeInTheDocument();
     const localAiModelSelect = screen.getByRole("combobox", { name: "Model" });
@@ -671,7 +674,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Review all open requests with local AI" }));
+    await user.click(screen.getByRole("button", { name: "Review all action-required requests" }));
 
     expect(
       await screen.findByText(
@@ -737,13 +740,13 @@ describe("App smoke test", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Uniswap.*Swap transaction.*Evidence high.*Risk needs-review/i,
+        name: /Uniswap.*Swap transaction.*Needs review.*Ethereum Mainnet/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Swap transaction (eth_sendTransaction)")).toBeInTheDocument();
     expect(screen.getByText("Decoded Universal Router route")).toBeInTheDocument();
-    expect(screen.getAllByText("Evidence High").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.getByText("Evidence score")).toBeInTheDocument();
     expect(screen.getByText("What this request wants")).toBeInTheDocument();
     expect(
@@ -774,10 +777,10 @@ describe("App smoke test", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /legacy-wallet\.example.*eth_sendRawTransaction.*Risk blocked/i,
+        name: /legacy-wallet\.example.*eth_sendRawTransaction.*Unsupported/i,
       }),
     );
-    expect(screen.getAllByText("Risk Blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unsupported").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Cannot relay with IntentProof" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Reject request" }));
 
@@ -799,7 +802,7 @@ describe("App smoke test", () => {
     );
 
     await user.click(screen.getByText("sign.example"));
-    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
 
     await user.click(
@@ -824,7 +827,7 @@ describe("App smoke test", () => {
       />,
     );
 
-    expect(screen.getAllByText("Risk Standard").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Recognized").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Forward to imToken Web" }));
 
     expect(signer.forwarded).toBe(1);
@@ -854,9 +857,9 @@ describe("App smoke test", () => {
     );
 
     expect(screen.getAllByText("Switch to Ethereum Mainnet").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Evidence High").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Risk Blocked")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Blocked")).not.toBeInTheDocument();
     expect(screen.getByText(/No transaction or message signature is requested/i)).toBeInTheDocument();
     expect(
       screen.getByText("Network switch request (wallet_switchEthereumChain)"),
@@ -909,7 +912,7 @@ describe("App smoke test", () => {
     );
 
     expect(screen.queryByText("Wallet capability check")).not.toBeInTheDocument();
-    expect(screen.getByText("No live DApp requests yet.")).toBeInTheDocument();
+    expect(screen.getByText("No action required.")).toBeInTheDocument();
     expect(signer.forwarded).toBe(0);
     expect(inbound.approvedResults).toEqual([]);
     await openSupportTool("Open Activity");

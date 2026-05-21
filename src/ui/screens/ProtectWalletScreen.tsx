@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 interface ProtectWalletScreenProps {
+  statusSummary: ReactNode;
   signerPanel: ReactNode;
   connectDapp: ReactNode;
   requestInbox: ReactNode;
@@ -10,6 +11,7 @@ interface ProtectWalletScreenProps {
 }
 
 export function ProtectWalletScreen({
+  statusSummary,
   signerPanel,
   connectDapp,
   requestInbox,
@@ -19,12 +21,13 @@ export function ProtectWalletScreen({
 }: ProtectWalletScreenProps) {
   return (
     <section className="product-screen protect-wallet-screen">
-      <div className="protect-hero surface">
-        <h1>Protect your imToken before signing.</h1>
-        <p>
-          Route DApp requests through IntentProof. We verify the actual
-          transaction before imToken signs.
-        </p>
+      <div className="protect-status-card surface">
+        <div>
+          <span className="eyebrow">Wallet approval inbox</span>
+          <h1>Protect your imToken before signing.</h1>
+          <p>Review DApp requests before the selected signer continues.</p>
+        </div>
+        {statusSummary}
       </div>
       <div className="live-grid live-grid-single">
         {signerPanel}

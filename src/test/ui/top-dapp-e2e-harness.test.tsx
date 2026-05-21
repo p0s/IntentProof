@@ -175,7 +175,7 @@ describe("top dapp WalletConnect E2E harness", () => {
       />,
     );
 
-    expect(screen.getByText("6 request(s)")).toBeInTheDocument();
+    expect(screen.getByText("6 action required")).toBeInTheDocument();
     for (const sourceLabel of [
       "1inch",
       "Curve",
@@ -188,9 +188,11 @@ describe("top dapp WalletConnect E2E harness", () => {
     }
     expect(screen.queryByText("tokenlon.im")).not.toBeInTheDocument();
     expect(screen.queryByText("compound.finance")).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Evidence /).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Risk /).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Mainnet request uses real assets or account authority.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Recognized/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
+    expect(screen.getByText("Advanced evidence")).toBeInTheDocument();
+    expect(screen.getByText("Evidence score")).not.toBeVisible();
   });
 
   it("proves cannot-relay, review, routine, and coordination behavior without third-party URI handoff", async () => {
@@ -210,10 +212,10 @@ describe("top dapp WalletConnect E2E harness", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Curve.*USDC approval.*Risk high-impact/i,
+        name: /Curve.*USDC approval.*High-impact permission/i,
       }),
     );
-    expect(screen.getAllByText("Risk High Impact").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("High-impact permission").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
@@ -224,10 +226,10 @@ describe("top dapp WalletConnect E2E harness", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /1inch.*Message signature.*Risk needs-review/i,
+        name: /1inch.*Message signature.*Needs review/i,
       }),
     );
-    expect(screen.getAllByText("Risk Needs Review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Forward to imToken Web" })).toBeDisabled();
     await user.click(
       screen.getByLabelText("I reviewed these details and want the selected signer to continue."),
@@ -240,7 +242,7 @@ describe("top dapp WalletConnect E2E harness", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Sushi.*USDC approval.*Risk needs-review/i,
+        name: /Sushi.*USDC approval.*Needs review/i,
       }),
     );
     await user.click(
